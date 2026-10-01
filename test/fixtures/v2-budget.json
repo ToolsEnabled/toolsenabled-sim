@@ -1,0 +1,17 @@
+{
+  "sourceCommit": "7cb920358715b6f792d0d62366979b0ef6d7d754",
+  "sourceArchiveSha256": "8dee3bc5c6cedd9c8e62288409c2f354a78f0abf6f8c7b77ac41f2b3425fb4d3",
+  "trajectorySha256": "fa31da8da8bd826475fc56ba6360ac0be832ad394716d9603314b787781a1fcf",
+  "actionsSha256": "6dd79e309fe76af75fba587d492fd88ad89bfa25988fc4864e982bf0782fdd60",
+  "status": {
+    "tick": 6,
+    "time": 0.1,
+    "delivered": 0,
+    "total": 3,
+    "collisions": 0,
+    "score": 0,
+    "complete": false,
+    "remainingTicks": 35994,
+    "stopReason": "byte-budget"
+  }
+}

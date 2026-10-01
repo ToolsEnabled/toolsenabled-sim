@@ -53,9 +53,9 @@ test('S-5: SIGHUP and an already missing capability still clean every file and t
   }finally{child?.kill('SIGKILL');await rm(root,{recursive:true,force:true});}
  }
 });
-test('S-6: one-tick command spam stops below the byte cap and retains no hub log arrays',async()=>{
+test('S-6: legacy one-tick command spam stops below the byte cap and retains no hub log arrays',async()=>{
  const {createSim,replayActions,verifyTrajectory}=await import('../src/sim.mjs');const scene=defaultScenario(),work=defaultAssignments(scene);let trajectory='',journal='';
- const sim=await createSim({scenario:scene,assignments:work,maxRunBytes:262144,retainLog:false,onRecord:s=>trajectory+=s,onAction:s=>journal+=s});
+ const sim=await createSim({scenario:scene,assignments:work,maxRunBytes:262144,budgetPolicy:'legacy',retainLog:false,onRecord:s=>trajectory+=s,onAction:s=>journal+=s});
  try{const who={role:'robot',agentId:work[0].agentId,robotId:work[0].robotId};let stopped=false;try{for(let tick=0;tick<80;tick++){for(let i=0;i<63;i++)sim.invoke(who,'robot.drive',{robotId:who.robotId,v:0,w:0,duration:5});sim.step(1);}}catch(e){assert.equal(e.code,'RUN_BYTE_BUDGET');stopped=true;}
   assert.ok(stopped);assert.equal(sim.status().stopReason,'byte-budget');assert.ok(Buffer.byteLength(trajectory)+Buffer.byteLength(journal)<262144);assert.deepEqual(sim.retainedLogCounts(),{records:0,actions:0});
   const rows=verifyTrajectory(trajectory),actions=journal.trim().split('\n').map(JSON.parse),replay=await replayActions(rows.records[0],actions);try{assert.equal(replay.trajectory(),trajectory);assert.equal(replay.status().stopReason,'byte-budget');}finally{replay.close();}
@@ -80,8 +80,8 @@ test('I-5: default launcher output contains directly executable POSIX registrati
   for(const line of lines){const host=line.split(' ')[0],args=execFileSync('bash',['-c',`${host}(){ printf '%s\\0' "$@"; }\n${line}`],{encoding:'utf8'}).split('\0').slice(0,-1);assert.equal(args[0],'mcp');if(host==='claude')assert.ok(JSON.parse(args.at(-1)).env.SIM_CONNECTION.startsWith(root));else assert.ok(args[4].startsWith('SIM_CONNECTION='+root));}
  }finally{child?.kill('SIGKILL');await rm(root,{recursive:true,force:true});}
 });
-test('I-6: package, lock, plugin and MCP advertise the first public release version',async()=>{
- for(const path of ['package.json','package-lock.json','.codex-plugin/plugin.json']){const data=JSON.parse(await readFile(new URL('../'+path,import.meta.url),'utf8'));assert.equal(data.version,'0.1.0');if(data.packages)assert.equal(data.packages[''].version,'0.1.0');}
- const changelog=await readFile(new URL('../CHANGELOG.md',import.meta.url),'utf8');assert.deepEqual([...changelog.matchAll(/^## (\d+\.\d+\.\d+)/gm)].map(m=>m[1]),['0.1.0']);assert.doesNotMatch(changelog,/## Unreleased/);
- await fixture(async hub=>{const c=new McpClient(hub.connections.amber);try{assert.equal((await c.initialize()).serverInfo.version,'0.1.0');}finally{await c.close();}});
+test('I-6: package, lock, plugin and MCP advertise the release version',async()=>{
+ for(const path of ['package.json','package-lock.json','.codex-plugin/plugin.json']){const data=JSON.parse(await readFile(new URL('../'+path,import.meta.url),'utf8'));assert.equal(data.version,'0.1.1');if(data.packages)assert.equal(data.packages[''].version,'0.1.1');}
+ const changelog=await readFile(new URL('../CHANGELOG.md',import.meta.url),'utf8');assert.deepEqual([...changelog.matchAll(/^## (\d+\.\d+\.\d+)/gm)].map(m=>m[1]),['0.1.1','0.1.0']);assert.doesNotMatch(changelog,/## Unreleased/);
+ await fixture(async hub=>{const c=new McpClient(hub.connections.amber);try{assert.equal((await c.initialize()).serverInfo.version,'0.1.1');}finally{await c.close();}});
 });

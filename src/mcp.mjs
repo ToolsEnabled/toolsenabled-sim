@@ -16,7 +16,7 @@ async function handle(line){
  if(msg.method==='ping'){send({jsonrpc:'2.0',id:msg.id,result:{}});return;}
  if(msg.method==='initialize'){
   if(initialized){error(msg.id,-32600,'Already initialized');return;}
-  initialized=true;send({jsonrpc:'2.0',id:msg.id,result:{protocolVersion:['2024-11-05','2025-03-26','2025-06-18'].includes(msg.params?.protocolVersion)?msg.params.protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'toolsenabled-sim',version:'0.1.0'},instructions:'Robot controls are bound to this connection. Read sim.status first. In live mode, use its live.round on every robot command, then call robot.submit once to finish the round. The launcher advances after all active robots submit or its deadline expires. In manual mode the coordinator calls sim.step.'}});return;
+  initialized=true;send({jsonrpc:'2.0',id:msg.id,result:{protocolVersion:['2024-11-05','2025-03-26','2025-06-18'].includes(msg.params?.protocolVersion)?msg.params.protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'toolsenabled-sim',version:'0.1.1'},instructions:'Robot controls are bound to this connection. Read sim.status first. In live mode, use its live.round on every robot command, then call robot.submit once to finish the round. The launcher advances after all active robots submit or its deadline expires. In manual mode the coordinator calls sim.step.'}});return;
  }
  if(!initialized){error(msg.id,-32002,'Initialize first');return;}
  if(!['tools/list','tools/call'].includes(msg.method)){error(msg.id,-32601,'Method not found');return;}

@@ -27,11 +27,13 @@ export function createLive({options,getSim,getSequence,enqueue,record,onError}){
   sim.invoke(coordinator,'sim.step',{n});record(committed);reset();
  }
  function expire(){if(!stopped()&&performance.now()>=deadline)commit('deadline');}
+ // A run-wide refusal is terminal now; do not leave a deadline callback queued.
+ function invokeRobot(fn){try{return fn();}finally{if(getSim().status().stopReason)clearTimeout(timer);}}
  function check(robotId,token){
   if(token!==round())throw new Error('Stale or missing live round; observe sim.status and replan');
   if(stopped())throw new Error('Live run has stopped');
   if(!options.activeRobots.includes(robotId))throw new Error('Robot is inactive in live mode');
   if(submitted.has(robotId))throw new Error('Robot already submitted this round');
  }
- return {status,reset,expire,command(caller,name,robotId,token,invoke){check(robotId,token);if((counts.get(robotId)||0)>=63)throw new Error('Live command budget exceeded');const result=invoke();record({kind:'command',...attribution(caller,robotId),round:round(),name});counts.set(robotId,(counts.get(robotId)||0)+1);return result;},submit(caller,robotId,token){check(robotId,token);getSim().invoke(caller,'robot.submit',{robotId,round:token});record({kind:'submission',...attribution(caller,robotId),round:round()});submitted.add(robotId);if(submitted.size===options.activeRobots.length)commit('submitted');return {...getSim().status(),live:status()};},close(){disposed=true;clearTimeout(timer);}};
+ return {status,reset,expire,command(caller,name,robotId,token,invoke){check(robotId,token);if((counts.get(robotId)||0)>=63)throw new Error('Live command budget exceeded');const result=invokeRobot(invoke);record({kind:'command',...attribution(caller,robotId),round:round(),name});counts.set(robotId,(counts.get(robotId)||0)+1);return result;},submit(caller,robotId,token){check(robotId,token);invokeRobot(()=>getSim().invoke(caller,'robot.submit',{robotId,round:token}));record({kind:'submission',...attribution(caller,robotId),round:round()});submitted.add(robotId);if(submitted.size===options.activeRobots.length)commit('submitted');return {...getSim().status(),live:status()};},close(){disposed=true;clearTimeout(timer);}};
 }
