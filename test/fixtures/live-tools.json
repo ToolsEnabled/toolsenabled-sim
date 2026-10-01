@@ -1,0 +1,381 @@
+[
+  {
+    "name": "sim.observe",
+    "description": "Observe the owned robot pose, nearby objects, contacts and ASCII map.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "robotId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+          "minLength": 1,
+          "maxLength": 48
+        }
+      },
+      "required": [
+        "robotId"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "sim.status",
+    "description": "Read score, simulation time, delivered crates, collision count and tick budget.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "sim.reset",
+    "description": "Coordinator: begin a new run with the same scene, seed and assignments.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "sim.scenario",
+    "description": "Coordinator: start a fresh run from a validated JSON scenario and assignment record.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "scenario": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "const": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9 /_.:+-]+(?: · [A-Za-z0-9 /_.:+-]+)?$"
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "arena": {
+              "type": "object",
+              "properties": {
+                "width": {
+                  "type": "number",
+                  "minimum": 6,
+                  "maximum": 60
+                },
+                "depth": {
+                  "type": "number",
+                  "minimum": 6,
+                  "maximum": 60
+                }
+              },
+              "required": [
+                "width",
+                "depth"
+              ],
+              "additionalProperties": false
+            },
+            "robots": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+                    "minLength": 1,
+                    "maxLength": 48
+                  },
+                  "x": {
+                    "type": "number",
+                    "minimum": -50,
+                    "maximum": 50
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": -50,
+                    "maximum": 50
+                  },
+                  "heading": {
+                    "type": "number",
+                    "minimum": -3.141592653589793,
+                    "maximum": 3.141592653589793
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "x",
+                  "y",
+                  "heading",
+                  "color"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 3,
+              "maxItems": 4
+            },
+            "crates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+                    "minLength": 1,
+                    "maxLength": 48
+                  },
+                  "x": {
+                    "type": "number",
+                    "minimum": -50,
+                    "maximum": 50
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": -50,
+                    "maximum": 50
+                  },
+                  "zone": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+                    "minLength": 1,
+                    "maxLength": 48
+                  }
+                },
+                "required": [
+                  "id",
+                  "x",
+                  "y",
+                  "zone"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 32
+            },
+            "zones": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+                    "minLength": 1,
+                    "maxLength": 48
+                  },
+                  "x": {
+                    "type": "number",
+                    "minimum": -50,
+                    "maximum": 50
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": -50,
+                    "maximum": 50
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "pattern": "^[A-Za-z0-9 /_-]+$"
+                  },
+                  "width": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 8
+                  },
+                  "depth": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 8
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "x",
+                  "y",
+                  "label",
+                  "width",
+                  "depth",
+                  "color"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 16
+            },
+            "obstacles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+                    "minLength": 1,
+                    "maxLength": 48
+                  },
+                  "x": {
+                    "type": "number",
+                    "minimum": -50,
+                    "maximum": 50
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": -50,
+                    "maximum": 50
+                  },
+                  "width": {
+                    "type": "number",
+                    "minimum": 0.2,
+                    "maximum": 20
+                  },
+                  "depth": {
+                    "type": "number",
+                    "minimum": 0.2,
+                    "maximum": 20
+                  }
+                },
+                "required": [
+                  "id",
+                  "x",
+                  "y",
+                  "width",
+                  "depth"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 32
+            }
+          },
+          "required": [
+            "version",
+            "name",
+            "seed",
+            "arena",
+            "robots",
+            "crates",
+            "zones",
+            "obstacles"
+          ],
+          "additionalProperties": false
+        },
+        "assignments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "robotId": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+                "minLength": 1,
+                "maxLength": 48
+              },
+              "agentId": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+                "minLength": 1,
+                "maxLength": 48
+              },
+              "driverLabel": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 27,
+                "pattern": "^[A-Za-z0-9 /_-]+$"
+              },
+              "crateId": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+                "minLength": 1,
+                "maxLength": 48
+              },
+              "taskId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "ledgerId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "required": [
+              "robotId",
+              "agentId",
+              "crateId",
+              "taskId",
+              "ledgerId"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 3,
+          "maxItems": 4
+        }
+      },
+      "required": [
+        "scenario",
+        "assignments"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "sim.assignments",
+    "description": "Coordinator: read the current work record and stable agent to robot mapping.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  }
+]

@@ -1,0 +1,235 @@
+[
+  {
+    "name": "sim.observe",
+    "description": "Observe the owned robot pose, nearby objects, contacts and ASCII map.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "robotId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+          "minLength": 1,
+          "maxLength": 48
+        }
+      },
+      "required": [
+        "robotId"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "robot.drive",
+    "description": "Set differential drive velocity for a bounded number of simulation seconds.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "robotId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "v": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        },
+        "w": {
+          "type": "number",
+          "minimum": -3.141592653589793,
+          "maximum": 3.141592653589793
+        },
+        "duration": {
+          "type": "number",
+          "minimum": 0.016666666666666666,
+          "maximum": 5
+        },
+        "round": {
+          "type": "string",
+          "pattern": "^[0-9]+:[0-9]+$",
+          "maxLength": 32
+        }
+      },
+      "required": [
+        "robotId",
+        "v",
+        "w",
+        "duration",
+        "round"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "robot.goto",
+    "description": "Follow an obstacle-aware path to an arena coordinate at up to 1.5 m/s.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "robotId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "x": {
+          "type": "number",
+          "minimum": -30,
+          "maximum": 30
+        },
+        "y": {
+          "type": "number",
+          "minimum": -30,
+          "maximum": 30
+        },
+        "round": {
+          "type": "string",
+          "pattern": "^[0-9]+:[0-9]+$",
+          "maxLength": 32
+        }
+      },
+      "required": [
+        "robotId",
+        "x",
+        "y",
+        "round"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "robot.grab",
+    "description": "Attach an assigned crate within 0.85 m of the robot front.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "robotId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "crateId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "round": {
+          "type": "string",
+          "pattern": "^[0-9]+:[0-9]+$",
+          "maxLength": 32
+        }
+      },
+      "required": [
+        "robotId",
+        "crateId",
+        "round"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "robot.release",
+    "description": "Release the held crate; a delivery scores only inside its labeled zone.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "robotId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "round": {
+          "type": "string",
+          "pattern": "^[0-9]+:[0-9]+$",
+          "maxLength": 32
+        }
+      },
+      "required": [
+        "robotId",
+        "round"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "robot.submit",
+    "description": "Live mode: finish commands for this round; the launcher steps when every active robot submits or its wall-clock budget expires.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "robotId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "round": {
+          "type": "string",
+          "pattern": "^[0-9]+:[0-9]+$",
+          "maxLength": 32
+        }
+      },
+      "required": [
+        "robotId",
+        "round"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "sim.status",
+    "description": "Read score, simulation time, delivered crates, collision count and tick budget.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  }
+]

@@ -1,0 +1,3 @@
+{"args":{"crateId":"cargo-a","ledgerId":"Ledger note #99","robotId":"amber","taskId":"Fleet task #99"},"identity":{"agentId":"coordinator","role":"coordinator"},"name":"sim.assign","order":0,"tick":0}
+{"args":{"duration":1,"robotId":"amber","v":0.1,"w":0},"identity":{"agentId":"script-amber","robotId":"amber","role":"robot"},"name":"robot.drive","order":1,"tick":0}
+{"args":{"n":3},"identity":{"agentId":"coordinator","role":"coordinator"},"name":"sim.step","order":2,"tick":0}

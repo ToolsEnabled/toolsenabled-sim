@@ -1,0 +1,21 @@
+{
+  "name": "toolsenabled-sim",
+  "version": "0.1.0",
+  "description": "Deterministic offline warehouse robot simulation and multi-camera MCP replay",
+  "type": "module",
+  "private": true,
+  "engines": {"node": ">=22"},
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "demo": "node tools/demo.mjs",
+    "replay": "node tools/replay.mjs",
+    "capture": "node tools/capture.mjs",
+    "hub": "node src/hub-cli.mjs",
+    "live": "node tools/live.mjs"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "0.17.3",
+    "three": "0.180.0",
+    "playwright-core": "1.62.0"
+  }
+}

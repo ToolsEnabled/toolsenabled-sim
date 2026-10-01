@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "name": "Warehouse · Three deliveries",
+  "seed": 731,
+  "arena": {"width": 16, "depth": 12},
+  "robots": [
+    {"id": "amber", "x": -5, "y": -3.5, "heading": 0, "color": "#ffbd59"},
+    {"id": "teal", "x": -5, "y": 0, "heading": 0, "color": "#4ddbc6"},
+    {"id": "violet", "x": -5, "y": 3.5, "heading": 0, "color": "#a99cff"}
+  ],
+  "crates": [
+    {"id": "cargo-a", "x": -3.8, "y": -3.5, "zone": "zone-a"},
+    {"id": "cargo-b", "x": -3.8, "y": 0, "zone": "zone-b"},
+    {"id": "cargo-c", "x": -3.8, "y": 3.5, "zone": "zone-c"}
+  ],
+  "zones": [
+    {"id": "zone-a", "label": "A / AMBER", "x": 5, "y": -3.5, "width": 2, "depth": 2, "color": "#ffbd59"},
+    {"id": "zone-b", "label": "B / TEAL", "x": 5, "y": 0, "width": 2, "depth": 2, "color": "#4ddbc6"},
+    {"id": "zone-c", "label": "C / VIOLET", "x": 5, "y": 3.5, "width": 2, "depth": 2, "color": "#a99cff"}
+  ],
+  "obstacles": [
+    {"id": "rack-a", "x": 0, "y": -1.75, "width": 3.2, "depth": 0.6},
+    {"id": "rack-b", "x": 0, "y": 1.75, "width": 3.2, "depth": 0.6}
+  ]
+}

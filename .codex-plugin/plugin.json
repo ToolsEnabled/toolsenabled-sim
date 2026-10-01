@@ -1,0 +1,19 @@
+{
+  "name": "sim",
+  "version": "0.1.0",
+  "description": "Deterministic warehouse robot simulation with shared MCP control and offline multi-camera replay.",
+  "author": {"name": "ToolsEnabled"},
+  "license": "MIT",
+  "keywords": ["simulation", "robots", "mcp", "replay"],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "ToolsEnabled Sim",
+    "shortDescription": "Coordinate robots in a replayable warehouse.",
+    "longDescription": "Control an owned robot through MCP, coordinate a shared fixed-step world, and replay deterministic camera views offline.",
+    "developerName": "ToolsEnabled",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "defaultPrompt": ["Observe my robot and coordinate a warehouse delivery."],
+    "brandColor": "#4ddbc6"
+  }
+}
