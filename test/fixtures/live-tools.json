@@ -1,7 +1,7 @@
 [
   {
     "name": "sim.observe",
-    "description": "Observe the owned robot pose, nearby objects, contacts and ASCII map.",
+    "description": "Observe the owned robot pose, nearby objects, contacts, ASCII map and deliveryAreas with crate-center bounds. A crate counts only when released (not held) and fully inside its assigned zone: abs(x - zone.x) <= width/2 - 0.3 and abs(y - zone.y) <= depth/2 - 0.3. The crate is 0.6 m wide/deep. Aim for the zone center, release, advance or submit, then verify delivered. There is no additional speed or settling-time test; bounds are conservative on a 1e-6 grid; aim at the center for motion tolerance.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -26,7 +26,7 @@
   },
   {
     "name": "sim.status",
-    "description": "Read score, simulation time, delivered crates, collision count and tick budget.",
+    "description": "Read score, simulation time, delivered crates, collision count, tick budget and deliveryAreas with crate-center bounds. A crate counts only when released (not held) and fully inside its assigned zone: abs(x - zone.x) <= width/2 - 0.3 and abs(y - zone.y) <= depth/2 - 0.3. The crate is 0.6 m wide/deep. Aim for the zone center, release, advance or submit, then verify delivered. There is no additional speed or settling-time test; bounds are conservative on a 1e-6 grid; aim at the center for motion tolerance.",
     "inputSchema": {
       "type": "object",
       "properties": {},

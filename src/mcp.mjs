@@ -1,6 +1,8 @@
 import {readConnection} from './private-files.mjs';
+import {instructions} from './instructions.mjs';
+import {isAbsolute} from 'node:path';
 const path=process.env.SIM_CONNECTION;
-if(!path){process.stderr.write('Set SIM_CONNECTION to a private connection file created by the sim hub.\n');process.exit(1);}
+if(!path||!isAbsolute(path)){process.stderr.write('SIM_CONNECTION must be an absolute path to a private connection file created by the sim hub.\n');process.exit(1);}
 let config;
 try{config=JSON.parse(readConnection(path));const u=new URL(config.url);if(u.hostname!=='127.0.0.1'||u.protocol!=='http:'||u.pathname!=='/'||u.username||u.password||u.search||u.hash||!Number.isInteger(Number(u.port))||!/^[a-f0-9]{64}$/.test(config.token))throw new Error('Invalid connection');}catch{process.stderr.write('Invalid SIM_CONNECTION file.\n');process.exit(1);}
 let initialized=false,buffer='',pending=Promise.resolve(),queued=0,drainExpired=false;
@@ -16,7 +18,7 @@ async function handle(line){
  if(msg.method==='ping'){send({jsonrpc:'2.0',id:msg.id,result:{}});return;}
  if(msg.method==='initialize'){
   if(initialized){error(msg.id,-32600,'Already initialized');return;}
-  initialized=true;send({jsonrpc:'2.0',id:msg.id,result:{protocolVersion:['2024-11-05','2025-03-26','2025-06-18'].includes(msg.params?.protocolVersion)?msg.params.protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'toolsenabled-sim',version:'0.1.1'},instructions:'Robot controls are bound to this connection. Read sim.status first. In live mode, use its live.round on every robot command, then call robot.submit once to finish the round. The launcher advances after all active robots submit or its deadline expires. In manual mode the coordinator calls sim.step.'}});return;
+  initialized=true;send({jsonrpc:'2.0',id:msg.id,result:{protocolVersion:['2024-11-05','2025-03-26','2025-06-18'].includes(msg.params?.protocolVersion)?msg.params.protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'toolsenabled-sim',version:'0.1.2'},instructions}});return;
  }
  if(!initialized){error(msg.id,-32002,'Initialize first');return;}
  if(!['tools/list','tools/call'].includes(msg.method)){error(msg.id,-32601,'Method not found');return;}

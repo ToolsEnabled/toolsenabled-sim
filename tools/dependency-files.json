@@ -1,0 +1,105 @@
+{
+  "@dimforge/rapier3d-compat": {
+    "license": "Apache-2.0",
+    "notices": [
+      "licenses/Apache-2.0.txt"
+    ],
+    "files": {
+      "package.json": {
+        "purpose": "metadata",
+        "sha256": "faf50a7ae7e48b44c66b21fde582891e3a3fc58104f089fbb20649af37bfa9bb"
+      },
+      "rapier.es.js": {
+        "purpose": "runtime",
+        "sha256": "e0f7783dae9d3d175ec62c0cafdad84261d8c64c5f7da6ae5b24e858cf9ab759"
+      }
+    },
+    "version": "0.17.3"
+  },
+  "playwright-core": {
+    "license": "Apache-2.0 (bundled component notices included)",
+    "notices": [
+      "node_modules/playwright-core/LICENSE",
+      "node_modules/playwright-core/NOTICE",
+      "node_modules/playwright-core/ThirdPartyNotices.txt",
+      "node_modules/playwright-core/lib/utilsBundle.js.LICENSE",
+      "node_modules/playwright-core/lib/webp_codec.LICENSE"
+    ],
+    "files": {
+      "LICENSE": {
+        "purpose": "license",
+        "sha256": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb"
+      },
+      "NOTICE": {
+        "purpose": "license",
+        "sha256": "6d602191187b35b9b01d2cffa01c8469c2c8d9de8a96f1bf868e0f264f51c81d"
+      },
+      "ThirdPartyNotices.txt": {
+        "purpose": "license",
+        "sha256": "a549d329bad8806fe279f0ecae0fc0270dec7e7c2dc8ec10f90e394f7c32b144"
+      },
+      "browsers.json": {
+        "purpose": "runtime",
+        "sha256": "f306eed529599b1eaf2f8a85db9de2b23e1a3fe36c2b66434b7c9434fb627a99"
+      },
+      "index.js": {
+        "purpose": "runtime",
+        "sha256": "a58fb2cec4293e7dcf73c58a179898a4f3986666451a19da4e731fa3af63265b"
+      },
+      "index.mjs": {
+        "purpose": "runtime",
+        "sha256": "3d36e2132d3c8b62397d23f0bb4177336aaee503203ae2a2c90fbeb5bf3317dd"
+      },
+      "lib/bootstrap.js": {
+        "purpose": "runtime",
+        "sha256": "4637f4dbfef9cfc01baeb5f5d2cb63fa0901522c96915ea2227290558d27123e"
+      },
+      "lib/coreBundle.js": {
+        "purpose": "runtime",
+        "sha256": "3258d1cf334c6afc95f22aa9c292436cb976b391e0437f1359c83b84f0cb9d66"
+      },
+      "lib/utilsBundle.js": {
+        "purpose": "runtime",
+        "sha256": "580f571bf063e2256b51b3946a035bc452fc0e22808d5547b198baea39923a32"
+      },
+      "lib/utilsBundle.js.LICENSE": {
+        "purpose": "license",
+        "sha256": "57945338cba4878e373646733528017fbe3db1503ec2b431fd30d2a390c70c33"
+      },
+      "lib/webp_codec.LICENSE": {
+        "purpose": "license",
+        "sha256": "995c7ee35aceb7666829b7a501ca89c0864e12b493c1174b155774ab1e03d831"
+      },
+      "package.json": {
+        "purpose": "metadata",
+        "sha256": "4556ebbf21a31c5e8dabb49c991ec291c5f00ffcad8b18cda45e4070b8a473bd"
+      }
+    },
+    "version": "1.62.0"
+  },
+  "three": {
+    "license": "MIT",
+    "notices": [
+      "node_modules/three/LICENSE"
+    ],
+    "files": {
+      "LICENSE": {
+        "purpose": "license",
+        "sha256": "bfe119ea4fd413f5f7ca3fcd63adb0c4a073ed39daa2fe7d3e6b769e21272601"
+      },
+      "build/three.core.js": {
+        "purpose": "runtime",
+        "sha256": "eb077d2417f61d3e6d9264c317cabc4ea35769ed6b0ab533067292a550784c20"
+      },
+      "build/three.module.js": {
+        "purpose": "runtime",
+        "sha256": "c8211c69345d2e9949dc7a8ac969380497aa0600a5a8ac6a459c8cd02dd9cb8a"
+      },
+      "package.json": {
+        "purpose": "metadata",
+        "sha256": "aa42494664dba4cf76d89c6975ee38321a402f09a048672e190bad6f13beec93"
+      }
+    },
+    "version": "0.180.0"
+  }
+}

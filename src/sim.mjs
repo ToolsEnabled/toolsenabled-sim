@@ -3,6 +3,7 @@ import {createHash} from 'node:crypto';
 import {validate,scenarioSchema,assignmentSchema,validateCall,schemasForVersion} from './schema.mjs';
 import {planPath} from './path.mjs';
 import {compareIds} from './order.mjs';
+import {deliveryRule,deliveryAreas} from './delivery.mjs';
 export const DT=1/60;
 const q=n=>Math.round(n*1e6)/1e6;
 const angle=x=>Math.atan2(Math.sin(x),Math.cos(x));
@@ -59,8 +60,10 @@ export async function createSim({scenario,seed=scenario.seed,assignments,maxTick
  function emit(data){const row={...data,previous};row.hash=hash(row);const line=canonical(row)+'\n';const size=Buffer.byteLength(line);if(maxRunBytes!==null&&recordBytes+actionBytes+auditBytes+size>maxRunBytes)throw new Error('Recording reservation invariant failed');onRecord(line);recordBytes+=size;if(retainLog)lines.push(line);previous=row.hash;}
  function position(r){const p=r.body.translation();return {x:q(p.x),y:q(p.z)};}
  function delivered(c){const p=position(c),z=scene.zones.find(z=>z.id===c.zone);return !c.heldBy&&Math.abs(p.x-z.x)<=z.width/2-.3&&Math.abs(p.y-z.y)<=z.depth/2-.3;}
- function status(){const done=[...crates.values()].filter(delivered).length;return {tick,time:q(tick*DT),delivered:done,total:crates.size,collisions,score:done*100-collisions*10,complete:done===crates.size,remainingTicks:maxTicks-tick,...(maxRunBytes!==null?{stopReason}:{})};}
- function snapshot(){return {kind:'tick',tick,time:q(tick*DT),events:structuredClone(tickEvents),robots:[...robots.values()].map(r=>({id:r.id,...position(r),heading:q(r.heading),holding:r.holding,agentId:r.assignment.agentId,taskId:r.assignment.taskId,ledgerId:r.assignment.ledgerId,...(formatVersion>=2?{caller:r.caller||null}:{}),action:structuredClone(r.lastAction)})),crates:[...crates.values()].map(c=>({id:c.id,...position(c),zone:c.zone,heldBy:c.heldBy,delivered:delivered(c)})),contacts:[...touching].sort(),status:status()};}
+ function recordedStatus(){const done=[...crates.values()].filter(delivered).length;return {tick,time:q(tick*DT),delivered:done,total:crates.size,collisions,score:done*100-collisions*10,complete:done===crates.size,remainingTicks:maxTicks-tick,...(maxRunBytes!==null?{stopReason}:{})};}
+ function guidance(){return {deliveryRule,deliveryAreas:deliveryAreas(scene.zones)};}
+ function status(){return {...recordedStatus(),...guidance()};}
+ function snapshot(){return {kind:'tick',tick,time:q(tick*DT),events:structuredClone(tickEvents),robots:[...robots.values()].map(r=>({id:r.id,...position(r),heading:q(r.heading),holding:r.holding,agentId:r.assignment.agentId,taskId:r.assignment.taskId,ledgerId:r.assignment.ledgerId,...(formatVersion>=2?{caller:r.caller||null}:{}),action:structuredClone(r.lastAction)})),crates:[...crates.values()].map(c=>({id:c.id,...position(c),zone:c.zone,heldBy:c.heldBy,delivered:delivered(c)})),contacts:[...touching].sort(),status:recordedStatus()};}
  function ensure(){if(closed)throw new Error('Simulation closed');}
  function actionEntry(who,name,args){return {order:actionOrder,tick,identity:structuredClone(who),...(formatVersion>=2?{caller:{role:who.role,agentId:who.agentId},robotId:args.robotId||null,robotIds:args.robotId?[args.robotId]:[...robots.keys()]}:{}),name,args:structuredClone(args)};}
  function appendAction(who,name,args){const entry=actionEntry(who,name,args),line=canonical(entry)+'\n';onAction(line);actionBytes+=Buffer.byteLength(line);actionOrder++;if(retainLog)actions.push(entry);pendingEvents.push(entry);pendingBytes+=Buffer.byteLength(canonical(entry))+1;}
@@ -88,11 +91,18 @@ export async function createSim({scenario,seed=scenario.seed,assignments,maxTick
   // points and remaining ticks only shrink. Actual frame bytes are debited in
   // step(); completion/replacement releases the unused future reservation.
   if(charged&&(robotBytes.get(args.robotId)||0)+charge+motionReserve(nextAction)>robotByteLimit)throw robotBudgetError(args.robotId);
-  // Existing motion is already reserved. Only a replacement drive/goto needs
-  // future storage added to the whole-run check; control calls add no motion.
+  // Ongoing motion is charged per robot and as actual run frames, not held
+  // aside run-wide. Only a new drive/goto adds future motion to this admission
+  // check; submit/release add none, and grab already plans an idle action.
   const motion=sharedRobots?(['robot.drive','robot.goto'].includes(name)?motionReserve(nextAction):0):name==='robot.goto'?512000:0;
-  const needed=entryBytes*2+pendingBytes+n*stateBound+motion+16384;
-  if(recordBytes+actionBytes+auditBytes+needed>maxRunBytes){stop();throw budgetError();}
+  const needed=entryBytes*2+pendingBytes+n*stateBound+16384;
+  const used=recordBytes+actionBytes+auditBytes;
+  if(used+needed+motion>maxRunBytes){
+   if(sharedRobots&&who.role!=='launcher'&&motion>0&&used+needed<=maxRunBytes){
+    const error=new Error('Requested motion exceeds remaining recording space; call refused; run remains active. Try a shorter drive or ask the coordinator to reset.');error.code='MOTION_BYTE_BUDGET';throw error;
+   }
+   stop();throw budgetError();
+  }
   return ()=>{if(charged)robotBytes.set(args.robotId,(robotBytes.get(args.robotId)||0)+charge);if(sharedRobots&&args.robotId&&name!=='robot.submit'){if(charged)chargedMotion.add(args.robotId);else chargedMotion.delete(args.robotId);}if(name==='robot.submit')submittedAtTick.add(args.robotId);};
  }
  function accountAuditBytes(n){if(maxRunBytes!==null&&recordBytes+actionBytes+auditBytes+n+4096>maxRunBytes){stop();throw budgetError();}auditBytes+=n;}
@@ -132,7 +142,7 @@ export async function createSim({scenario,seed=scenario.seed,assignments,maxTick
    const p=position(r);const objects=[...[...robots.values()].map(x=>({id:x.id,kind:'robot',...position(x)})),...[...crates.values()].map(x=>({id:x.id,kind:'crate',zone:x.zone,heldBy:x.heldBy,...position(x)})),...scene.obstacles.map(x=>({...x,kind:'obstacle'})),...scene.zones.map(x=>({...x,kind:'zone'}))];const nearby=objects.filter(x=>x.id!==r.id&&Math.hypot(x.x-p.x,x.y-p.y)<=4);
    const grid=Array.from({length:13},()=>Array(33).fill('.'));
    for(const [items,char] of [[scene.zones,'Z'],[scene.obstacles,'#'],[[...crates.values()].map(c=>({...c,...position(c)})),'C'],[[...robots.values()].map(b=>({...b,...position(b)})),'R']])for(const o of items){const x=Math.round((o.x/scene.arena.width+.5)*32),y=Math.round((o.y/scene.arena.depth+.5)*12);if(grid[y]?.[x])grid[y][x]=o.id===r.id?'@':char;}
-   return {pose:snapshot().robots.find(x=>x.id===r.id),nearby,zones:structuredClone(scene.zones),contacts:[...touching].filter(k=>k.split(':').includes(r.id)).sort(),map:grid.map(row=>row.join('')).join('\n'),legend:'@ you / R robot / C crate / Z zone / # rack',tick};
+   return {pose:snapshot().robots.find(x=>x.id===r.id),crateId:r.assignment.crateId,zoneId:crates.get(r.assignment.crateId).zone,nearby,zones:structuredClone(scene.zones),...guidance(),contacts:[...touching].filter(k=>k.split(':').includes(r.id)).sort(),map:grid.map(row=>row.join('')).join('\n'),legend:'@ you / R robot / C crate / Z zone / # rack',tick};
   }
   if(name==='sim.reset'||name==='sim.scenario')throw new Error('Run transitions require the hub');
   if(r&&(commandsAtTick.get(r.id)||0)>=64)throw new Error('Per-robot command budget exceeded');

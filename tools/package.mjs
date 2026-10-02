@@ -1,4 +1,4 @@
-import {readdir,readFile,stat,mkdir} from 'node:fs/promises';
+import {readFile,stat,mkdir} from 'node:fs/promises';
 import {createWriteStream} from 'node:fs';
 import {join,resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -7,12 +7,14 @@ import {createGzip,deflateRawSync} from 'node:zlib';
 import {Readable} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
 const root=fileURLToPath(new URL('../',import.meta.url));
+import {dependencyInputs} from './package-inputs.mjs';
 const output=process.argv[2];if(!output)throw new Error('Usage: node tools/package.mjs OUTPUT.zip|OUTPUT.tar.gz');
 const tracked=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
 if(execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim())throw new Error('Commit source before packaging');
-async function walk(path){const files=[];for(const item of await readdir(join(root,path),{withFileTypes:true})){if(item.isSymbolicLink())continue;const p=`${path}/${item.name}`;if(item.isDirectory())files.push(...await walk(p));else if(item.isFile())files.push(p);}return files;}
-const manifest=JSON.parse(await readFile(join(root,'package.json'),'utf8'));
-const files=[...tracked];for(const name of Object.keys(manifest.dependencies).sort())files.push(...await walk(`node_modules/${name}`));
+const sourceFiles=JSON.parse(await readFile(join(root,'tools/package-files.json'),'utf8'));
+if(JSON.stringify([...tracked].sort())!==JSON.stringify(sourceFiles)||sourceFiles.includes('server.json'))throw new Error('Source allowlist differs from tracked files or includes Registry metadata');
+const deps=dependencyInputs(root);
+const files=[...sourceFiles,...deps.files];
 files.sort();
 function tarHeader(name,size){
  const header=Buffer.alloc(512);let prefix='';if(Buffer.byteLength(name)>100){const split=name.lastIndexOf('/');prefix=name.slice(0,split);name=name.slice(split+1);}if(Buffer.byteLength(name)>100||Buffer.byteLength(prefix)>155)throw new Error('Archive path too long');
@@ -37,4 +39,4 @@ async function* zipArchive(){
 await mkdir(dirname(resolve(output)),{recursive:true});
 if(output.endsWith('.zip'))await pipeline(Readable.from(zipArchive()),createWriteStream(resolve(output),{flags:'wx'}));
 else await pipeline(Readable.from(archive()),createGzip({level:9}),createWriteStream(resolve(output),{flags:'wx'}));
-console.log(JSON.stringify({output:resolve(output),files:files.length,bytes:(await stat(output)).size,sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),dependencies:manifest.dependencies}));
+console.log(JSON.stringify({output:resolve(output),files:files.length,bytes:(await stat(output)).size,sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),dependencies:deps.versions}));

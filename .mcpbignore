@@ -1,0 +1,6 @@
+# Preserve the reviewed source and dependency inventory in reproducible bundles.
+!.gitignore
+!.mcpbignore
+!package-lock.json
+!*.d.ts
+!*.map

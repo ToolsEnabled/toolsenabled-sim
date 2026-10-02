@@ -6,13 +6,13 @@ Each successful call contains text JSON and `structuredContent.result`. Tool fai
 
 | Tool | Role | Required arguments | Behavior |
 | --- | --- | --- | --- |
-| `sim.observe` | Robot/coord | `robotId` | Owned robot pose, agent/task/ledger IDs, nearby objects within 4 m, all labeled delivery zones, current contacts and 33×13 ASCII map. |
+| `sim.observe` | Robot/coord | `robotId` | Owned robot pose, agent/task/ledger IDs, assigned `crateId` and `zoneId`, nearby objects within 4 m, all labeled zones, `deliveryRule`, `deliveryAreas`, contacts and 33×13 ASCII map. |
 | `robot.drive` | Robot/coord | `robotId, v, w, duration` | Linear speed −2…2 m/s, yaw speed −π…π rad/s, duration 1/60…5 s. Runs when shared time advances. |
 | `robot.goto` | Robot/coord | `robotId, x, y` | Plan a bounded obstacle-aware path. Max 1.5 m/s and 2.5 rad/s; expires after 1200 ticks (20 s). Failure to reach a target is visible in subsequent poses. |
 | `robot.grab` | Robot/coord | `robotId, crateId` | Assigned, unheld crate within 0.85 m and ±0.4 rad in front. Attach with a physical fixed joint and stop current motion. |
 | `robot.release` | Robot/coord | `robotId` | Detach the held crate and set its velocity to zero. Delivery requires the whole crate inside its destination zone. |
 | `robot.submit` | Owned robot only, live only | `robotId, round` | Finish this robot’s batch; commit when all active robots have submitted. |
-| `sim.status` | All | none | Tick, simulation seconds, delivered/total, collision episodes, score, completion and remaining ticks. |
+| `sim.status` | All | none | Tick, simulation seconds, delivered/total, collision episodes, score, completion, remaining ticks, `deliveryRule` and `deliveryAreas`. |
 | `sim.step` | Coordinator/human | `n` | Advance every robot by 1…60 ticks. Fixed 1/60 s timestep; default total run budget 36,000 ticks. |
 | `sim.assign` | Coordinator/human | `robotId, crateId, taskId, ledgerId` | Assign subsequent work. Cannot take a held crate or a different robot's assigned crate; stable agent ID is preserved. |
 | `sim.assignments` | Coordinator/human | none | Read current crate assignments and the stable agent→robot mapping. |
@@ -24,6 +24,8 @@ In live mode every robot mutation requires the `round` returned by `sim.status.l
 All objects reject unknown properties. Numbers must be finite, robot IDs must exist, and a robot connection can act/observe only for its bound agent and robot. Inputs outside arena, obstructed targets, duplicate assignment IDs, overlapping starting solids and unavailable crates are rejected before mutation. Up to 64 accepted mutations per robot are allowed between steps, including live submission (at most 63 commands plus one submit or launcher hold); reads do not spend this budget. Rejected mode/quota calls write nothing and do not consume the shared recording budget. Every accepted mutation is included in the per-run byte reservation; steps also obey the run tick budget. The maximum protocol frame is 256 KiB. A stdio connection queues at most 32 requests; excess requests receive a protocol error. The hub admits four in-flight requests per authenticated capability, including incomplete bodies, and schedules accepted calls round-robin across identities. Unauthenticated sockets have a two-second lifetime; sockets also have a two-second idle timeout. There is no small pre-auth connection cap that another account can fill. A per-root lease prevents two hubs writing the same run directory.
 
 Observe legend: `@` owned robot, `R` another robot, `C` crate, `Z` labeled delivery zone, `#` rack. Coordinates are metres, simulation `x` east and `y` south. Heading 0 points east and positive yaw turns toward south. `v` is forward speed; `w` is yaw speed.
+
+`sim.observe` and `sim.status` return `deliveryRule` and `deliveryAreas`. Each area identifies its `zoneId`, recommended `center`, `crateSize` (0.6 m), and `centerBounds` (`minX`, `maxX`, `minY`, `maxY`). A crate counts only when released (not held) and fully inside its assigned zone according to the scorer: `abs(crate.x - zone.x) <= zone.width/2 - 0.3` and `abs(crate.y - zone.y) <= zone.depth/2 - 0.3`. The scorer uses this fixed margin, not a rotated-footprint or settling-speed calculation. Bounds use a conservative 1e-6 grid checked against the scorer and body-coordinate precision; aim at the zone center for motion tolerance. Release, advance or submit, then verify `delivered`; reaching a robot waypoint alone does not prove a delivery. In the warehouse, zone A accepts crate centers roughly from x=4.3 to 5.7 and y=-4.2 to -2.8; a crate at x=4.28 misses by 2 cm even though its center is inside the drawn zone.
 
 Example robot request:
 

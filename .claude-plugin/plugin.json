@@ -1,0 +1,28 @@
+{
+  "name": "toolsenabled-sim",
+  "version": "0.1.2",
+  "displayName": "ToolsEnabled Sim",
+  "description": "Deterministic offline warehouse robot simulation with shared MCP control, delivery guidance and replay.",
+  "author": {
+    "name": "ToolsEnabled, Inc.",
+    "email": "support@toolsenabled.ai",
+    "url": "https://toolsenabled.ai"
+  },
+  "homepage": "https://toolsenabled.ai",
+  "repository": "https://github.com/ToolsEnabled/toolsenabled-sim",
+  "license": "MIT",
+  "keywords": [
+    "simulation",
+    "robots",
+    "mcp",
+    "replay"
+  ],
+  "userConfig": {
+    "connection_file": {
+      "type": "file",
+      "title": "Assigned robot connection file",
+      "description": "Absolute path to the private connection file created by the running Sim hub for this agent. Keep the hub outside the plugin cache.",
+      "required": true
+    }
+  }
+}

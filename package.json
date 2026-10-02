@@ -1,6 +1,6 @@
 {
   "name": "toolsenabled-sim",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Deterministic offline warehouse robot simulation and multi-camera MCP replay",
   "type": "module",
   "private": true,

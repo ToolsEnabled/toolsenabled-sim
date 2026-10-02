@@ -1,3 +1,4 @@
+import {deliveryRule} from './delivery.mjs';
 const workId={type:'string',pattern:'^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$',minLength:1,maxLength:128};
 export const id={type:'string',pattern:'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$',minLength:1,maxLength:48};
 export const num=(minimum,maximum)=>({type:'number',minimum,maximum});
@@ -44,13 +45,13 @@ const robot={robotId:id};
 const round={type:'string',pattern:'^[0-9]+:[0-9]+$',maxLength:32};
 const command=properties=>obj({...properties,round},Object.keys(properties));
 const specs=[
- ['sim.observe','Observe the owned robot pose, nearby objects, contacts and ASCII map.',obj(robot),false],
+ ['sim.observe',`Observe the owned robot pose, nearby objects, contacts, ASCII map and deliveryAreas with crate-center bounds. ${deliveryRule}`,obj(robot),false],
  ['robot.drive','Set differential drive velocity for a bounded number of simulation seconds.',command({...robot,v:num(-2,2),w:num(-Math.PI,Math.PI),duration:num(1/60,5)}),false],
  ['robot.goto','Follow an obstacle-aware path to an arena coordinate at up to 1.5 m/s.',command({...robot,x:num(-30,30),y:num(-30,30)}),false],
  ['robot.grab','Attach an assigned crate within 0.85 m of the robot front.',command({...robot,crateId:id}),false],
- ['robot.release','Release the held crate; a delivery scores only inside its labeled zone.',command(robot),false],
+ ['robot.release',`Release the held crate. ${deliveryRule}`,command(robot),false],
  ['robot.submit','Live mode: finish commands for this round; the launcher steps when every active robot submits or its wall-clock budget expires.',obj({...robot,round}),false,true],
- ['sim.status','Read score, simulation time, delivered crates, collision count and tick budget.',obj({}),false],
+ ['sim.status',`Read score, simulation time, delivered crates, collision count, tick budget and deliveryAreas with crate-center bounds. ${deliveryRule}`,obj({}),false],
  ['sim.step','Coordinator: advance all robots together by 1–60 fixed ticks.',obj({n:{type:'integer',minimum:1,maximum:60}}),true],
  ['sim.reset','Coordinator: begin a new run with the same scene, seed and assignments.',obj({}),true],
  ['sim.scenario','Coordinator: start a fresh run from a validated JSON scenario and assignment record.',obj({scenario:scenarioSchema,assignments:assignmentSchema}),true],

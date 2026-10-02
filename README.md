@@ -21,7 +21,7 @@ The output directory must be new. No model, agent CLI, cloud service, browser or
 Start one hub for the shared world:
 
 ```sh
-node src/hub-cli.mjs --root ./runs/shared
+node src/hub-cli.mjs --root /absolute/private-sim-run
 ```
 
 It prints paths to private connection files. Keep this process running. Give each MCP host only the connection for its assigned robot; keep the coordinator connection with the coordinator. All connections attach to this same world. Generate a client configuration without modifying your settings:
@@ -30,13 +30,21 @@ It prints paths to private connection files. Keep this process running. Give eac
 node tools/mcp-config.mjs --client codex --connection ./runs/shared/connection-amber.json
 ```
 
-Supported configuration formats: `claude`, `codex`, `cursor`, `claude-desktop`, `deepseek`. The helper emits TOML for Codex, `mcpServers` JSON for Claude Code/Cursor/Claude Desktop, and a Cordis profile-overlay YAML patch for DeepSeek Harness. DeepSeek output contains an `@deepseek-ai/dsh-mcp-client` entry under `- insert:` with the stdio command, arguments, environment and tool timeout. Merge that patch into your DSH profile overlay; it is not an `mcpServers` configuration. Configuration generation and stdio transport are tested; a real model/client session is a separate integration qualification. A Codex plugin manifest and `.mcp.json` are included; set `SIM_CONNECTION` in the host environment before starting the plugin. The helper avoids plugin-root interpolation when registering directly.
+Supported configuration formats: `claude`, `codex`, `cursor`, `claude-desktop`, `deepseek`. The helper emits TOML for Codex, `mcpServers` JSON for Claude Code/Cursor/Claude Desktop, and a Cordis profile-overlay YAML patch for DeepSeek Harness. DeepSeek output contains an `@deepseek-ai/dsh-mcp-client` entry under `- insert:` with the stdio command, arguments, environment and tool timeout. Merge that patch into your DSH profile overlay; it is not an `mcpServers` configuration. Configuration generation and stdio transport are tested; a real model/client session is a separate integration qualification. Claude Code and Codex plugin manifests and the `toolsenabled-sim` workflow skill are included. Claude uses its `connection_file` option; Codex uses an inline server and an absolute `SIM_CONNECTION` in the host environment. The helper avoids plugin-root interpolation when registering directly.
 
 The coordinator calls `sim.step` after collecting commands from the robots. A slow agent changes wall-clock duration, never simulation timing. Reset and scenario selection are coordinator/human controls. They create a new run and preserve previous logs. Robot connections receive six tools in manual mode and seven in live mode. Full schemas and examples are in [docs/MCP.md](docs/MCP.md).
 
+## Claude plugin
+
+The `toolsenabled-sim` plugin connects to the shared hub using one agent’s private connection-file path. Install it at local project scope from a verified marketplace snapshot. See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. Provides a Claude Desktop bundle; native installation still needs qualification. POSIX ownership checks are required; native Windows is not supported in this release.
+
+Sim has no dashboard or human-control link. The human starts the hub and finds connection-file paths in its launch terminal. Capture and replay are explicit human-run local commands. Agent file/shell tools running as the same user can read host logs and private connection files; project scope and skill guidance do not provide OS isolation.
+
+ToolsEnabled is not affiliated with or endorsed by Anthropic. [Privacy](https://toolsenabled.ai/legal/privacy/) · [Support](mailto:support@toolsenabled.ai).
+
 ## Live mode
 
-Run `node tools/live.mjs --root ./runs/live --work-record ./work-record.json` to print per-agent Claude Code and Codex registration and start the shared live clock. The work record includes the real `driverLabel` for each agent. Every active robot finishes a round with `robot.submit`; the launcher steps when all have submitted or a **120-second wall-clock budget** expires. Missing robots hold. Round tokens reject late commands. Physics and frame replay remain deterministic. See [docs/LIVE.md](docs/LIVE.md) for registration, the agent loop, options and replay behavior.
+Run `node tools/live.mjs --root /absolute/private-live-run --work-record /absolute/work-record.json` to print per-agent Claude Code and Codex registration and start the shared live clock. The work record includes the real `driverLabel` for each agent. Every active robot finishes a round with `robot.submit`; the launcher steps when all have submitted or a **120-second wall-clock budget** expires. Missing robots hold. Round tokens reject late commands. Physics and frame replay remain deterministic. See [docs/LIVE.md](docs/LIVE.md) for registration, the agent loop, options and replay behavior.
 
 ## Render offline
 
@@ -54,7 +62,7 @@ Capture uses an isolated headless browser and a temporary allowlisted loopback a
 
 ## Scenarios and Fleet
 
-Pass `--scenario scene.json --work-record work-record.json` to the hub. Scenarios declare arena dimensions, robot poses/colors, crates, obstacles and destination zones. No scene-specific code is needed. See [scenarios/warehouse.json](scenarios/warehouse.json) and [docs/SCENARIOS.md](docs/SCENARIOS.md). The coordinator can assign subsequent crates with `sim.assign`; the robot-to-agent mapping stays stable for the life of the hub.
+Pass `--scenario /absolute/scene.json --work-record /absolute/work-record.json` to the hub. Scenarios declare arena dimensions, robot poses/colors, crates, obstacles and destination zones. No scene-specific code is needed. See [scenarios/warehouse.json](scenarios/warehouse.json) and [docs/SCENARIOS.md](docs/SCENARIOS.md). The coordinator can assign subsequent crates with `sim.assign`; the robot-to-agent mapping stays stable for the life of the hub.
 
 A Fleet work record export contains `assignments`, with `robotId`, `agentId`, `crateId`, `taskId` and `ledgerId` for every robot, plus `driverLabel` for live runs. These IDs appear in every state record and accepted command. Start each robot's host only after it has claimed its Fleet assignment. To verify real Fleet storage locally without model calls:
 

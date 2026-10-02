@@ -1,19 +1,47 @@
 {
-  "name": "sim",
-  "version": "0.1.1",
+  "name": "toolsenabled-sim",
+  "version": "0.1.2",
   "description": "Deterministic warehouse robot simulation with shared MCP control and offline multi-camera replay.",
-  "author": {"name": "ToolsEnabled"},
+  "author": {
+    "name": "ToolsEnabled, Inc.",
+    "email": "support@toolsenabled.ai",
+    "url": "https://toolsenabled.ai"
+  },
   "license": "MIT",
-  "keywords": ["simulation", "robots", "mcp", "replay"],
-  "mcpServers": "./.mcp.json",
+  "keywords": [
+    "simulation",
+    "robots",
+    "mcp",
+    "replay"
+  ],
+  "mcpServers": {
+    "toolsenabled_sim": {
+      "command": "node",
+      "args": [
+        "./src/mcp.mjs"
+      ],
+      "cwd": "./",
+      "env_vars": [
+        "SIM_CONNECTION"
+      ]
+    }
+  },
   "interface": {
     "displayName": "ToolsEnabled Sim",
     "shortDescription": "Coordinate robots in a replayable warehouse.",
     "longDescription": "Control an owned robot through MCP, coordinate a shared fixed-step world, and replay deterministic camera views offline.",
     "developerName": "ToolsEnabled",
     "category": "Productivity",
-    "capabilities": ["Interactive", "Write"],
-    "defaultPrompt": ["Observe my robot and coordinate a warehouse delivery."],
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Observe my robot and coordinate a warehouse delivery."
+    ],
     "brandColor": "#4ddbc6"
-  }
+  },
+  "homepage": "https://toolsenabled.ai",
+  "repository": "https://github.com/ToolsEnabled/toolsenabled-sim",
+  "skills": "./skills/"
 }

@@ -46,12 +46,16 @@ test('live rejects invalid active sets and budgets before creating a run',async(
  for(const live of [{budgetMs:0},{budgetMs:Infinity},{activeRobots:[]},{activeRobots:['missing']},{activeRobots:['amber','amber']},{stepTicks:61}])await assert.rejects(fixture(live,()=>{}));
 });
 test('live holds still commit after the robot exhausts its command budget',async()=>{
- await fixture({budgetMs:1800,activeRobots:['amber'],stepTicks:7},async({clients:c,hub})=>{
+ // Allow slow CI enough time to fill the command budget. A one-step run makes
+ // the deadline assertion independent of how late the test process resumes.
+ await fixture({budgetMs:15000,activeRobots:['amber'],stepTicks:7},async({clients:c,hub})=>{
   const {live}=await c.amber.call('sim.status',{});const before=await c.amber.call('sim.observe',{robotId:'amber'});
   for(let i=0;i<63;i++)await c.amber.call('robot.drive',{robotId:'amber',v:1,w:0,duration:5,round:live.round});
   await assert.rejects(c.amber.call('robot.drive',{robotId:'amber',v:1,w:0,duration:5,round:live.round}),/budget/);
-  await delay(1900);const p=await c.amber.call('sim.observe',{robotId:'amber'});assert.equal(p.tick,7);assert.equal(p.pose.x,before.pose.x);await replay(hub.runDir);
- });
+  const until=Date.now()+30000;let p;
+  do{await delay(50);p=await c.amber.call('sim.observe',{robotId:'amber'});}while(p.tick===0&&Date.now()<until);
+  assert.equal(p.tick,7);assert.equal(p.pose.x,before.pose.x);await replay(hub.runDir);
+ },7);
 });
 test('live launcher prints per-agent Claude Code and Codex registration and binds the actual stdio role',async()=>{
  const {spawn}=await import('node:child_process');const {writeFile}=await import('node:fs/promises');const {defaultAssignments,defaultScenario}=await import('../src/hub.mjs');

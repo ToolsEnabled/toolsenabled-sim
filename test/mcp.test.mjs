@@ -23,6 +23,7 @@ test('MCP schemas, role surface, malformed requests, EOF and immutable old runs'
   const robot=new McpClient(hub.connections.amber); clients.push(robot); await robot.initialize();
   const list=await c.request('tools/list',{}); const golden=JSON.parse(await readFile(new URL('./fixtures/tools.json',import.meta.url),'utf8')); assert.deepEqual(list.tools,golden);
   const rlist=await robot.request('tools/list',{}); assert.equal(rlist.tools.length,6); assert.ok(!rlist.tools.some(t=>t.name==='sim.reset'));
+  for(const response of [await robot.call('sim.status',{}),await robot.call('sim.observe',{robotId:'amber'})]){assert.match(response.deliveryRule,/released.*fully inside/);assert.equal(response.deliveryAreas[0].centerBounds.minX,4.300001);}
   await assert.rejects(robot.call('sim.reset',{})); await assert.rejects(robot.call('robot.drive',{robotId:'teal',v:1,w:0,duration:1}));
   await assert.rejects(c.request('made/up',{}));
   await c.call('sim.step',{n:1}); const old=await readFile(join(root,'run-0001','trajectory.jsonl'));
