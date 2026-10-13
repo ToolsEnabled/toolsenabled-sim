@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.8 — 2026-10-13
+
+- Stop the hub after any failed journal write. Before, only EIO, ENOSPC and EBADF stopped it, and a write cut short (for example by a file-size limit) went unnoticed, so after EFBIG, EROFS or EDQUOT the hub kept accepting and journaling calls while the simulated world moved ahead of its record. Now a write to the trajectory, the action journal or the live audit that fails for any reason or writes only part of its record stops the hub: every later call gets "Hub stopped after storage failure", the live clock stops, and the hub prints one warning naming the error code.
+- List a run whose recording ends in a partial record, as after such a failure, as unreadable in `/sim runs` and `sim-view runs`, instead of failing the whole history page.
+- `/sim replay` now prints a capture command with `--seconds` set to the run's recorded length, so it works for runs shorter than ten seconds and captures the whole of longer runs. A run with no recorded tick yet, such as a just-reset run, gets no capture command and says why.
+- Refuse a FIFO given as the connection file, a run file or a scenario file at once, instead of waiting forever for a writer: the MCP server prints "Invalid SIM_CONNECTION file.", and the pane and action preflight report the file instead of timing out.
+- Physics, dependencies, the MCP tool list and recorded trajectory bytes are unchanged.
+
 ## 0.1.7 — 2026-10-13
 
 - Document that Claude Code stores the plugin's `connection_file` once per user, in the Claude configuration directory, not per project, so installing for a second robot rebinds the first. To run several robots on one OS account, give each robot agent its own `CLAUDE_CONFIG_DIR` (or pass a `--settings` file on every launch); README and docs/CLAUDE-INSTALL.md show the commands.
