@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.9 — 2026-10-13
+
+- README: a "Try it" section gives the shortest path from nothing to a working result: start a hub, install the plugin with the coordinator's connection file, then three prompts (`/sim status`, a delivery for amber, `/toolsenabled-sim:step 60`), each with the result it shows. No account or API key is needed.
+- SECURITY.md cites this repository's LICENSE (MIT) for "as is". https://toolsenabled.ai/terms/ covers only Fleet and the website.
+- The replay test that runs the printed capture command in a POSIX shell moved unchanged from `test/audit-views.test.mjs` to its own file, `test/replay-capture.test.mjs`, which makes no HTTP request of its own. Both files record ticks through the plugin's MCP server instead of a direct HTTP call to the hub. The tests check exactly what they checked before.
+- Code, physics, dependencies, the MCP tool list and recorded trajectory bytes are unchanged.
+
 ## 0.1.8 — 2026-10-13
 
 - Stop the hub after any failed journal write. Before, only EIO, ENOSPC and EBADF stopped it, and a write cut short (for example by a file-size limit) went unnoticed, so after EFBIG, EROFS or EDQUOT the hub kept accepting and journaling calls while the simulated world moved ahead of its record. Now a write to the trajectory, the action journal or the live audit that fails for any reason or writes only part of its record stops the hub: every later call gets "Hub stopped after storage failure", the live clock stops, and the hub prints one warning naming the error code.

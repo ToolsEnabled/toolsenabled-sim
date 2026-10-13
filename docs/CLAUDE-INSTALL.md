@@ -30,7 +30,7 @@ claude plugin details toolsenabled-sim@toolsenabled-sim
 claude mcp list
 ```
 
-A Git-backed install copies the repository's default branch at its current commit, which contains source and no dependencies. Claude Code fills them itself: when it installs the plugin it runs `npm ci --ignore-scripts --workspaces=false --no-audit --no-fund` in the installed plugin directory (observed with Claude Code 2.1.296), so the shim can start without a manual step. Only if that directory has no `node_modules` (for example npm was missing or offline during the install), run `npm ci --ignore-scripts --no-audit --no-fund` there yourself. For an offline install, download the release ZIP and its `.sha256` sidecar, verify with `sha256sum -c toolsenabled-sim-0.1.8.zip.sha256`, extract it, then run `claude plugin marketplace add /absolute/extracted/sim` and the same install command. That ZIP includes the pinned dependencies. Review updates before adopting them; a relative-source catalog is not a per-file cryptographic integrity check.
+A Git-backed install copies the repository's default branch at its current commit, which contains source and no dependencies. Claude Code fills them itself: when it installs the plugin it runs `npm ci --ignore-scripts --workspaces=false --no-audit --no-fund` in the installed plugin directory (observed with Claude Code 2.1.296), so the shim can start without a manual step. Only if that directory has no `node_modules` (for example npm was missing or offline during the install), run `npm ci --ignore-scripts --no-audit --no-fund` there yourself. For an offline install, download the release ZIP and its `.sha256` sidecar, verify with `sha256sum -c toolsenabled-sim-0.1.9.zip.sha256`, extract it, then run `claude plugin marketplace add /absolute/extracted/sim` and the same install command. That ZIP includes the pinned dependencies. Review updates before adopting them; a relative-source catalog is not a per-file cryptographic integrity check.
 
 `-s local` keeps registration in this project. The host can launch the shim at session startup and during `claude mcp list`; listing is not an inert configuration read. Distinct robots need distinct connection files and, on one OS account, distinct Claude configuration directories (see below). A second host pointed at the same robot shares that identity and command limits; it is not an additional agent. Disconnecting a shim leaves the owning hub running. End the client normally, then stop the hub with SIGINT/SIGTERM/SIGHUP after all clients finish.
 
@@ -83,7 +83,7 @@ The stdio server reads one application environment variable at startup: `SIM_CON
 
 ## Desktop bundle and release metadata
 
-A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.8 release, and native installation still needs qualification. The bundle requires Node 22+ and POSIX ownership support. Its manifest restricts native installation to macOS; Windows support needs a separate ownership implementation and qualification. Headless Linux MCP tests do not establish native Desktop acceptance, and including SKILL.md does not establish Desktop skill loading. Local MCP servers are not available in claude.ai chat.
+A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.9 release, and native installation still needs qualification. The bundle requires Node 22+ and POSIX ownership support. Its manifest restricts native installation to macOS; Windows support needs a separate ownership implementation and qualification. Headless Linux MCP tests do not establish native Desktop acceptance, and including SKILL.md does not establish Desktop skill loading. Local MCP servers are not available in claude.ai chat.
 
 The human imports only the reviewed bundle and supplies the absolute private connection-file path. During future native qualification, confirm shim stderr in `~/Library/Logs/Claude/mcp-server-<server-name>.log` and `mcp.log`. No one-time dashboard link is expected. A development signature proves neither trusted publisher identity nor native installation support.
 
@@ -92,8 +92,8 @@ Unsigned bundles are built twice with pinned mcpb 2.1.2, fixed build time and no
 Build from a clean committed checkout with the reviewed offline dependencies already present:
 
 ```sh
-node tools/package.mjs /outside/toolsenabled-sim-0.1.8.zip
-python3 tools/package-mcpb.py --mcpb-cli /absolute/pinned-mcpb-2.1.2/dist/cli/cli.js --output /outside/toolsenabled-sim-0.1.8.mcpb
+node tools/package.mjs /outside/toolsenabled-sim-0.1.9.zip
+python3 tools/package-mcpb.py --mcpb-cli /absolute/pinned-mcpb-2.1.2/dist/cli/cli.js --output /outside/toolsenabled-sim-0.1.9.mcpb
 python3 test/packaging-tools.test.py
 ```
 
