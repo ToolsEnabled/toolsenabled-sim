@@ -33,3 +33,26 @@ test('MCP schemas, role surface, malformed requests, EOF and immutable old runs'
   const foreign=await fetch(hub.url+'/call',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json'},body:'{}'}); assert.equal(foreign.status,403);
  }finally {for(const c of clients) await c.close(); if(hub)await hub.close();await rm(root,{recursive:true,force:true});}
 });
+// Directory policy P-5E: every tool declares a title and its hints. These are the reviewed values, read from each
+// handler in src/sim.mjs and src/hub.mjs; changing one must be a deliberate edit here.
+const write=title=>({title,readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false});
+const read=title=>({title,readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false});
+const reviewedAnnotations={'sim.observe':read('Observe robot'),'robot.drive':write('Drive robot'),'robot.goto':write('Move robot to waypoint'),'robot.grab':write('Grab crate'),'robot.release':write('Release crate'),'robot.submit':write('Submit live round'),'sim.status':read('Read simulation status'),'sim.step':write('Advance shared world'),'sim.reset':write('Restart shared world'),'sim.scenario':write('Start scenario run'),'sim.assign':write('Assign crate work'),'sim.assignments':read('Read assignments')};
+test('every tool the real server lists declares its reviewed title and hints, in manual and live mode',async()=>{
+ const seen=new Set();
+ for(const live of [false,true]){
+  const root=await mkdtemp(join(tmpdir(),'sim-annotations-'));let hub;const clients=[];
+  try{
+   hub=await startHub({root,...(live?{live:{budgetMs:120000}}:{})});
+   for(const id of ['coordinator','amber']){
+    const c=new McpClient(hub.connections[id]);clients.push(c);await c.initialize();
+    for(const tool of (await c.request('tools/list',{})).tools){
+     const a=tool.annotations;assert.equal(typeof a?.title,'string',tool.name);assert.ok(a.title.trim(),tool.name);
+     assert.equal(typeof a.readOnlyHint,'boolean',tool.name);assert.equal(typeof a.destructiveHint,'boolean',tool.name);
+     assert.deepEqual(a,reviewedAnnotations[tool.name],tool.name);seen.add(tool.name);
+    }
+   }
+  }finally{for(const c of clients)await c.close();await hub?.close();await rm(root,{recursive:true,force:true});}
+ }
+ assert.deepEqual([...seen].sort(),Object.keys(reviewedAnnotations).sort());
+});

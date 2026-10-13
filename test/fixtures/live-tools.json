@@ -18,6 +18,7 @@
       "additionalProperties": false
     },
     "annotations": {
+      "title": "Observe robot",
       "readOnlyHint": true,
       "destructiveHint": false,
       "idempotentHint": true,
@@ -34,6 +35,7 @@
       "additionalProperties": false
     },
     "annotations": {
+      "title": "Read simulation status",
       "readOnlyHint": true,
       "destructiveHint": false,
       "idempotentHint": true,
@@ -50,8 +52,9 @@
       "additionalProperties": false
     },
     "annotations": {
+      "title": "Restart shared world",
       "readOnlyHint": false,
-      "destructiveHint": false,
+      "destructiveHint": true,
       "idempotentHint": false,
       "openWorldHint": false
     }
@@ -356,8 +359,9 @@
       "additionalProperties": false
     },
     "annotations": {
+      "title": "Start scenario run",
       "readOnlyHint": false,
-      "destructiveHint": false,
+      "destructiveHint": true,
       "idempotentHint": false,
       "openWorldHint": false
     }
@@ -372,6 +376,7 @@
       "additionalProperties": false
     },
     "annotations": {
+      "title": "Read assignments",
       "readOnlyHint": true,
       "destructiveHint": false,
       "idempotentHint": true,

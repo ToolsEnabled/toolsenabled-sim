@@ -18,6 +18,7 @@
       "additionalProperties": false
     },
     "annotations": {
+      "title": "Observe robot",
       "readOnlyHint": true,
       "destructiveHint": false,
       "idempotentHint": true,
@@ -66,8 +67,9 @@
       "additionalProperties": false
     },
     "annotations": {
+      "title": "Drive robot",
       "readOnlyHint": false,
-      "destructiveHint": false,
+      "destructiveHint": true,
       "idempotentHint": false,
       "openWorldHint": false
     }
@@ -108,8 +110,9 @@
       "additionalProperties": false
     },
     "annotations": {
+      "title": "Move robot to waypoint",
       "readOnlyHint": false,
-      "destructiveHint": false,
+      "destructiveHint": true,
       "idempotentHint": false,
       "openWorldHint": false
     }
@@ -145,8 +148,9 @@
       "additionalProperties": false
     },
     "annotations": {
+      "title": "Grab crate",
       "readOnlyHint": false,
-      "destructiveHint": false,
+      "destructiveHint": true,
       "idempotentHint": false,
       "openWorldHint": false
     }
@@ -175,8 +179,9 @@
       "additionalProperties": false
     },
     "annotations": {
+      "title": "Release crate",
       "readOnlyHint": false,
-      "destructiveHint": false,
+      "destructiveHint": true,
       "idempotentHint": false,
       "openWorldHint": false
     }
@@ -191,6 +196,7 @@
       "additionalProperties": false
     },
     "annotations": {
+      "title": "Read simulation status",
       "readOnlyHint": true,
       "destructiveHint": false,
       "idempotentHint": true,

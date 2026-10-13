@@ -101,7 +101,7 @@ The mod starts one program, the plugin's own reader, to read the view a pane sho
 
 `<view>` is the pane being opened (`status`, `robots`, `map`, `runs`, `events`, `scenarios`, `replay` or `connection`; `help` starts nothing), or `action` for an action's preflight, which receives `{"verb": ..., "args": [...]}` on standard input. The options are the ones that pane needs: `--stream`, `--run`, `--check <file>`, `--offset`, `--cursor` and `--revision`. `env -i` starts it with only those four variables, so your API keys, tokens and Node settings such as `NODE_OPTIONS` never reach it. `node` is found on your `PATH`, or on `/usr/local/bin:/usr/bin:/bin` when `PATH` is empty. It runs when you open a pane, page, reload or switch views, or type an action command; never at startup and never on a timer. It is the same reader the Codex commands run (`tools/sim-view.mjs`); running it as its own process keeps your environment out of it.
 
-The MCP server entry runs `node <plugin folder>/src/mcp.mjs` with `SIM_CONNECTION` set to your `connection_file`; Claude Code starts and stops it. Neither the mod nor the server starts a hub, a browser or a shell.
+The MCP server entry runs `node <plugin folder>/src/mcp.mjs` with `SIM_CONNECTION` set to your `connection_file`; Claude Code starts and stops it. Neither the mod nor the server starts a hub, a browser or a shell. Every tool the server lists declares a plain-language `title` and the hints `readOnlyHint`, `destructiveHint`, `idempotentHint` and `openWorldHint`: `sim.observe`, `sim.status` and `sim.assignments` are read-only, every other tool changes the shared world and is marked destructive and not idempotent, and no tool reaches beyond your computer.
 
 **What it reads**
 
