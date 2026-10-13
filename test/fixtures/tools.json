@@ -1,6 +1,7 @@
 [
   {
     "name": "sim.observe",
+    "title": "Observe robot",
     "description": "Observe the owned robot pose, nearby objects, contacts, ASCII map and deliveryAreas with crate-center bounds. A crate counts only when released (not held) and fully inside its assigned zone: abs(x - zone.x) <= width/2 - 0.3 and abs(y - zone.y) <= depth/2 - 0.3. The crate is 0.6 m wide/deep. Aim for the zone center, release, advance or submit, then verify delivered. There is no additional speed or settling-time test; bounds are conservative on a 1e-6 grid; aim at the center for motion tolerance.",
     "inputSchema": {
       "type": "object",
@@ -27,6 +28,7 @@
   },
   {
     "name": "robot.drive",
+    "title": "Drive robot",
     "description": "Set differential drive velocity for a bounded number of simulation seconds.",
     "inputSchema": {
       "type": "object",
@@ -76,6 +78,7 @@
   },
   {
     "name": "robot.goto",
+    "title": "Move robot to waypoint",
     "description": "Follow an obstacle-aware path to an arena coordinate at up to 1.5 m/s.",
     "inputSchema": {
       "type": "object",
@@ -119,6 +122,7 @@
   },
   {
     "name": "robot.grab",
+    "title": "Grab crate",
     "description": "Attach an assigned crate within 0.85 m of the robot front.",
     "inputSchema": {
       "type": "object",
@@ -157,6 +161,7 @@
   },
   {
     "name": "robot.release",
+    "title": "Release crate",
     "description": "Release the held crate. A crate counts only when released (not held) and fully inside its assigned zone: abs(x - zone.x) <= width/2 - 0.3 and abs(y - zone.y) <= depth/2 - 0.3. The crate is 0.6 m wide/deep. Aim for the zone center, release, advance or submit, then verify delivered. There is no additional speed or settling-time test; bounds are conservative on a 1e-6 grid; aim at the center for motion tolerance.",
     "inputSchema": {
       "type": "object",
@@ -188,6 +193,7 @@
   },
   {
     "name": "sim.status",
+    "title": "Read simulation status",
     "description": "Read score, simulation time, delivered crates, collision count, tick budget and deliveryAreas with crate-center bounds. A crate counts only when released (not held) and fully inside its assigned zone: abs(x - zone.x) <= width/2 - 0.3 and abs(y - zone.y) <= depth/2 - 0.3. The crate is 0.6 m wide/deep. Aim for the zone center, release, advance or submit, then verify delivered. There is no additional speed or settling-time test; bounds are conservative on a 1e-6 grid; aim at the center for motion tolerance.",
     "inputSchema": {
       "type": "object",
@@ -205,6 +211,7 @@
   },
   {
     "name": "sim.step",
+    "title": "Advance shared world",
     "description": "Coordinator: advance all robots together by 1–60 fixed ticks.",
     "inputSchema": {
       "type": "object",
@@ -230,6 +237,7 @@
   },
   {
     "name": "sim.reset",
+    "title": "Restart shared world",
     "description": "Coordinator: begin a new run with the same scene, seed and assignments.",
     "inputSchema": {
       "type": "object",
@@ -247,6 +255,7 @@
   },
   {
     "name": "sim.scenario",
+    "title": "Start scenario run",
     "description": "Coordinator: start a fresh run from a validated JSON scenario and assignment record.",
     "inputSchema": {
       "type": "object",
@@ -554,6 +563,7 @@
   },
   {
     "name": "sim.assign",
+    "title": "Assign crate work",
     "description": "Coordinator: assign another crate and Fleet task/ledger IDs while keeping the agent mapping stable.",
     "inputSchema": {
       "type": "object",
@@ -601,6 +611,7 @@
   },
   {
     "name": "sim.assignments",
+    "title": "Read assignments",
     "description": "Coordinator: read the current work record and stable agent to robot mapping.",
     "inputSchema": {
       "type": "object",

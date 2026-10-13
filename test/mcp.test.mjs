@@ -33,7 +33,7 @@ test('MCP schemas, role surface, malformed requests, EOF and immutable old runs'
   const foreign=await fetch(hub.url+'/call',{method:'POST',headers:{origin:'https://example.invalid','content-type':'application/json'},body:'{}'}); assert.equal(foreign.status,403);
  }finally {for(const c of clients) await c.close(); if(hub)await hub.close();await rm(root,{recursive:true,force:true});}
 });
-// Directory policy P-5E: every tool declares a title and its hints. These are the reviewed values, read from each
+// Directory policy P-5E: every tool declares a title and its hints; the top-level title equals annotations.title. These are the reviewed values, read from each
 // handler in src/sim.mjs and src/hub.mjs; changing one must be a deliberate edit here.
 const write=title=>({title,readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false});
 const read=title=>({title,readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false});
@@ -48,6 +48,7 @@ test('every tool the real server lists declares its reviewed title and hints, in
     const c=new McpClient(hub.connections[id]);clients.push(c);await c.initialize();
     for(const tool of (await c.request('tools/list',{})).tools){
      const a=tool.annotations;assert.equal(typeof a?.title,'string',tool.name);assert.ok(a.title.trim(),tool.name);
+     assert.equal(tool.title,a.title,tool.name+': top-level title (MCP 2025-06-18) equals annotations.title');
      assert.equal(typeof a.readOnlyHint,'boolean',tool.name);assert.equal(typeof a.destructiveHint,'boolean',tool.name);
      assert.deepEqual(a,reviewedAnnotations[tool.name],tool.name);seen.add(tool.name);
     }

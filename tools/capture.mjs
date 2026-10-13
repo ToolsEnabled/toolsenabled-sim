@@ -8,6 +8,12 @@ import {chromium} from 'playwright-core';
 import {verifyTrajectory,hash} from '../src/sim.mjs';
 import {runCli,cliOption} from '../src/cli-lifecycle.mjs';
 async function fileHash(path){const h=createHash('sha256');for await(const b of createReadStream(path))h.update(b);return h.digest('hex');}
+// The one browser check: SIM_CHROMIUM_EXECUTABLE, else an already present Playwright-cache Chromium. Nothing is downloaded.
+export async function offlineChromium(){
+ const executablePath=process.env.SIM_CHROMIUM_EXECUTABLE||chromium.executablePath();
+ try{await stat(executablePath);}catch{throw new Error('Offline Chromium missing. Set SIM_CHROMIUM_EXECUTABLE to your supplied headless Chromium binary. No browser is downloaded.');}
+ return executablePath;
+}
 export async function capture({run,output,times,cameras='all',seconds=10,verifyAgainst,progress=()=>{}}){
  const path=join(run,'trajectory.jsonl');if((await stat(path)).size>256*1024*1024)throw new Error('Trajectory exceeds bounded capture size');
  const input=await readFile(path,'utf8'),checked=verifyTrajectory(input);
@@ -18,8 +24,7 @@ export async function capture({run,output,times,cameras='all',seconds=10,verifyA
  try{
   await mkdir(output,{recursive:false,mode:0o700});
   created=true;
-  const executablePath=process.env.SIM_CHROMIUM_EXECUTABLE||chromium.executablePath();
-  try{await stat(executablePath);}catch{throw new Error('Offline Chromium missing. Set SIM_CHROMIUM_EXECUTABLE to your supplied headless Chromium binary. No browser is downloaded.');}
+  const executablePath=await offlineChromium();
   const launchArgs=['--no-zygote','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-networking','--disable-component-update'];
   browser=await chromium.launch({headless:true,executablePath,chromiumSandbox:false,args:launchArgs});
   const context=await browser.newContext({viewport:{width:1080,height:1080},deviceScaleFactor:1,locale:'en-US',timezoneId:'UTC',colorScheme:'dark',reducedMotion:'reduce',serviceWorkers:'block'});

@@ -61,9 +61,10 @@ const specs=[
 // Tool annotations, reviewed per handler (src/sim.mjs invoke, src/hub.mjs dispatch): the three reads return before any
 // mutation; every other tool, once accepted, replaces or advances shared state and journals it, so it is destructive and a
 // repeat is not idempotent. Every tool works only through the local hub on 127.0.0.1, so none is open-world.
+// Each title is given twice: as the tool's top-level title (MCP 2025-06-18 Tool.title) and as annotations.title.
 const titles={'sim.observe':'Observe robot','robot.drive':'Drive robot','robot.goto':'Move robot to waypoint','robot.grab':'Grab crate','robot.release':'Release crate','robot.submit':'Submit live round','sim.status':'Read simulation status','sim.step':'Advance shared world','sim.reset':'Restart shared world','sim.scenario':'Start scenario run','sim.assign':'Assign crate work','sim.assignments':'Read assignments'};
 const reads=['sim.observe','sim.status','sim.assignments'];
-export const tools=specs.map(([name,description,inputSchema,coordinator,liveOnly=false])=>({name,description,inputSchema,annotations:{title:titles[name],readOnlyHint:reads.includes(name),destructiveHint:!reads.includes(name),idempotentHint:reads.includes(name),openWorldHint:false},coordinator,liveOnly}));
+export const tools=specs.map(([name,description,inputSchema,coordinator,liveOnly=false])=>({name,title:titles[name],description,inputSchema,annotations:{title:titles[name],readOnlyHint:reads.includes(name),destructiveHint:!reads.includes(name),idempotentHint:reads.includes(name),openWorldHint:false},coordinator,liveOnly}));
 export function toolList(role,{live=false}={}){
  return tools.filter(t=>(live||!t.liveOnly)&&(!t.coordinator||['human','coordinator'].includes(role))&&(!live||(!['sim.step','sim.assign'].includes(t.name)&&(!t.name.startsWith('robot.')||role==='robot')))).map(({coordinator,liveOnly,...t})=>{
   const result=structuredClone(t);if(live&&t.name.startsWith('robot.')&&!result.inputSchema.required.includes('round'))result.inputSchema.required.push('round');return result;

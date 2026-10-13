@@ -30,15 +30,38 @@ claude plugin details toolsenabled-sim@toolsenabled-sim
 claude mcp list
 ```
 
-A Git-backed install contains source. Before the shim starts, run `npm ci --ignore-scripts --no-audit --no-fund` from its installed plugin directory. For an offline install, download the release ZIP and its `.sha256` sidecar, verify with `sha256sum -c toolsenabled-sim-0.1.6.zip.sha256`, extract it, then run `claude plugin marketplace add /absolute/extracted/sim` and the same install command. That ZIP includes the pinned dependencies. Review updates before adopting them; a relative-source catalog is not a per-file cryptographic integrity check.
+A Git-backed install copies the repository's default branch at its current commit, which contains source and no dependencies. Claude Code fills them itself: when it installs the plugin it runs `npm ci --ignore-scripts --workspaces=false --no-audit --no-fund` in the installed plugin directory (observed with Claude Code 2.1.296), so the shim can start without a manual step. Only if that directory has no `node_modules` (for example npm was missing or offline during the install), run `npm ci --ignore-scripts --no-audit --no-fund` there yourself. For an offline install, download the release ZIP and its `.sha256` sidecar, verify with `sha256sum -c toolsenabled-sim-0.1.6.zip.sha256`, extract it, then run `claude plugin marketplace add /absolute/extracted/sim` and the same install command. That ZIP includes the pinned dependencies. Review updates before adopting them; a relative-source catalog is not a per-file cryptographic integrity check.
 
-`-s local` keeps registration in this project. The host can launch the shim at session startup and during `claude mcp list`; listing is not an inert configuration read. Distinct robots need distinct connection files and project configurations. A second host pointed at the same robot shares that identity and command limits; it is not an additional agent. Disconnecting a shim leaves the owning hub running. End the client normally, then stop the hub with SIGINT/SIGTERM/SIGHUP after all clients finish.
+`-s local` keeps registration in this project. The host can launch the shim at session startup and during `claude mcp list`; listing is not an inert configuration read. Distinct robots need distinct connection files and, on one OS account, distinct Claude configuration directories (see below). A second host pointed at the same robot shares that identity and command limits; it is not an additional agent. Disconnecting a shim leaves the owning hub running. End the client normally, then stop the hub with SIGINT/SIGTERM/SIGHUP after all clients finish.
 
-The non-secret path option is stored by Claude Code under `pluginConfigs["toolsenabled-sim@toolsenabled-sim"].options.connection_file`. It is passed through `SIM_CONNECTION`, never as a command-line argument. The capability itself stays in the external file. Do not paste the file's contents into settings or prompts. For private per-project option overrides, use an absolute machine-local `--settings` file; do not commit it:
+Every install command prints `1 userConfig option not yet set — run /plugin configure toolsenabled-sim@toolsenabled-sim in Claude Code, or pass --config KEY=VALUE.` even though you passed `connection_file`. The unset option is the optional `run_root` (below); the message is expected and the install succeeded. To set both, add `--config run_root=/absolute/private-sim-run` and the message no longer appears. `claude plugin configure toolsenabled-sim@toolsenabled-sim` lists each option and whether it is set.
+
+`claude plugin details toolsenabled-sim@toolsenabled-sim` shows `Hooks (0)`. That count covers only event hooks declared in `hooks/hooks.json`; Sim declares none there and loads its mod through that file's `modules` list instead (`hooks/register.tsx`, described in the README section "What this plugin runs, sends and reads"). `claude plugin validate --strict` analyses the mod, and `claude plugin test .` runs its tests. The same listing counts the eight action commands and the delivery skill together as `Skills (9)`.
+
+The non-secret path option is stored by Claude Code under `pluginConfigs["toolsenabled-sim@toolsenabled-sim"].options.connection_file`. It is passed through `SIM_CONNECTION`, never as a command-line argument. The capability itself stays in the external file. Do not paste the file's contents into settings or prompts.
+
+### Several robots on one OS account
+
+Claude Code stores plugin options per user, not per project. `--config connection_file=…` is written to `settings.json` in the Claude configuration directory (`~/.claude`, or `$CLAUDE_CONFIG_DIR` when set); the project's `.claude/settings.local.json` receives only `enabledPlugins`, even with `-s local`. Installing for a second robot from another project therefore rebinds every project that uses the same configuration directory to the second robot. Claude Code 2.1.296 also ignores `pluginConfigs` written into a project's `.claude/settings.json` or `.claude/settings.local.json`.
+
+Give each robot agent its own Claude configuration directory, and set it for every `claude` command that agent runs (install, `mcp list` and the session itself). For amber:
+
+```sh
+export CLAUDE_CONFIG_DIR=/absolute/claude-config-amber
+claude plugin marketplace add ToolsEnabled/toolsenabled-sim
+claude plugin install toolsenabled-sim@toolsenabled-sim -s local --config connection_file=/absolute/private-sim-run/connection-amber.json
+claude mcp list
+```
+
+For teal, in another terminal, use `CLAUDE_CONFIG_DIR=/absolute/claude-config-teal` and `connection-teal.json` with the same commands. Each configuration directory has its own settings, installed plugins and sign-in, so sign in once in each. Keep these directories private and outside any shared project.
+
+For a one-off launch, an absolute machine-local `--settings` file also overrides the stored value for that launch only, for example `claude --settings /absolute/amber-sim-settings.json` with this content (do not commit it):
 
 ```json
 {"pluginConfigs":{"toolsenabled-sim@toolsenabled-sim":{"options":{"connection_file":"/absolute/private-sim-run/connection-amber.json"}}}}
 ```
+
+Every launch must then pass it: a launch without `--settings` uses the stored value, which is the last robot installed in that configuration directory.
 
 Use `/sim help` for local panes and exact action names; `/toolsenabled-sim:deliver` requests delivery. The optional absolute `run_root` option anchors retained views after clean shutdown deletes connection files. It is used only by the read-only view child, which explicitly receives `SIM_CONNECTION` and `SIM_RUN_ROOT`. See [COMMANDS.md](COMMANDS.md) for every pane, action and Codex equivalent. Invoke `/toolsenabled-sim:toolsenabled-sim` with a general delivery task. The skill reads status/observation, uses the current round, submits, and verifies delivery. Restrict the agent to the intended Sim tools where practical. The live coordinator cannot drive robots. Driver labels must name the actual client; a script is a scripted driver. A successful install or tool handshake is not a successful model-driven delivery.
 

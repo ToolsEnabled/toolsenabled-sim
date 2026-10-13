@@ -4,7 +4,7 @@ import {mkdtemp,rm,readFile,stat} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {runDemo} from '../tools/demo.mjs';
-import {capture} from '../tools/capture.mjs';
+import {capture,offlineChromium} from '../tools/capture.mjs';
 test('real headless Three.js: all cameras, RGB 1080 PNG, pure out-of-order renderAt and repeated bytes', async()=>{
  const root=await mkdtemp(join(tmpdir(),'sim-render-')),previousUmask=process.umask(0);
  try {
@@ -29,7 +29,7 @@ test('Studio page contract: read-only server, promise hook, metadata and no cloc
   await runDemo({output:join(root,'run')});server=await serveReplay({run:join(root,'run')});
   const post=await fetch(server.url+'/capture',{method:'POST',headers:{origin:new URL(server.url).origin,'content-type':'application/json'},body:'{}'});assert.equal(post.status,405);
   const escape=await fetch(server.url+'/%2e%2e/package.json');assert.equal(escape.status,404);
-  browser=await chromium.launch({headless:true,executablePath:process.env.SIM_CHROMIUM_EXECUTABLE||chromium.executablePath(),chromiumSandbox:false,args:['--no-zygote','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+  browser=await chromium.launch({headless:true,executablePath:await offlineChromium(),chromiumSandbox:false,args:['--no-zygote','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
   const page=await browser.newPage({viewport:{width:1080,height:1080},deviceScaleFactor:1});await page.goto(server.url);await page.waitForSelector('body[data-ready="1"]');
   const result=await page.evaluate(async()=>{
    const random=Math.random,now=Date.now,perf=performance.now;Math.random=()=>{throw new Error('Unseeded random');};Date.now=()=>{throw new Error('Wall clock');};performance.now=()=>{throw new Error('Clock');};
@@ -44,7 +44,7 @@ test('data-driven tall arenas fit the overview and raster metadata matches drawn
  const root=await mkdtemp(join(tmpdir(),'sim-tall-'));let server,browser;
  try{
   const {defaultAssignments}=await import('../src/hub.mjs');const scenario=defaultScenario();scenario.arena.depth=24;scenario.name='Tall yard';scenario.zones[0].label='Zone a';const assignments=defaultAssignments(scenario).map((a,i)=>({...a,driverLabel:['CUSTOM DRIVER','CODEX','CLAUDE CODE'][i]}));await runDemo({output:join(root,'run'),scenario,assignments});server=await serveReplay({run:join(root,'run')});
-  browser=await chromium.launch({headless:true,executablePath:process.env.SIM_CHROMIUM_EXECUTABLE||chromium.executablePath(),chromiumSandbox:false,args:['--no-zygote','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+  browser=await chromium.launch({headless:true,executablePath:await offlineChromium(),chromiumSandbox:false,args:['--no-zygote','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
   const page=await browser.newPage({viewport:{width:1080,height:1080}});await page.goto(server.url);await page.waitForSelector('body[data-ready="1"]');await page.evaluate(()=>window.renderAt(5));const data=await page.evaluate(async()=>({cameras:window.cameraMetadata,text:(await window.studioRasterMetadata())[0].texts.map(t=>t.text),full:(await window.renderAt(5,'overview'),(await window.studioRasterMetadata())[0].texts.map(t=>t.text))}));
   assert.equal(data.cameras.top.orthographicSpan,26);assert.equal(data.cameras.overview.fitFraction,.85);assert.ok(data.cameras.overview.floorBounds.every(p=>Math.abs(p[0])<=.86&&Math.abs(p[1])<=.86));assert.ok(data.full.includes('ZONE A'));assert.ok(data.text.includes('TALL YARD 01'));for(const label of ['CUSTOM DRIVER','CODEX','CLAUDE CODE'])assert.ok(data.text.includes(label));assert.ok(!data.text.includes('SCRIPT-AMBER'));
  }finally{if(browser)await browser.close();if(server)await server.close();await rm(root,{recursive:true,force:true});}
