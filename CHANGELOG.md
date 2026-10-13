@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.6 — 2026-10-13
+
+- Run the eight action commands (`/toolsenabled-sim:deliver`, `:move`, `:hold`, `:submit`, `:step`, `:assign`, `:scenario`, `:reset`) exactly as typed. Before the model turn the plugin still checks the arguments, that the person typed the action at the terminal or through Remote Control, and the read-only role/mode preflight; it no longer replaces the typed arguments with the preflight's data, and if the check itself fails it refuses instead of letting the command run unchecked.
+- Report the caller's own role, agent and robot as `whoami` in `sim.status` (never the connection capability); the action commands read the robot ID from it.
+- Refuse a `/toolsenabled-sim:scenario` path typed with repeated spaces, which would name a different file than the one checked; the model now reads the checked scenario file with the normal Read approval.
+- Give every MCP tool a plain-language title and its hints; the nine tools that change the shared world are now marked destructive.
+- Add the directory listing icon `.claude-plugin/icon.png`. The release ZIP leaves it out, and the packaging checks exempt exactly that one image.
+- Add the README section "What this plugin runs, sends and reads". Point the plugin's homepage to https://toolsenabled.ai/sim/, add its documentation, privacy (https://toolsenabled.ai/privacy/) and support (https://toolsenabled.ai/support/) links, and replace the old privacy link.
+- Preserve the pinned runtime dependencies and recorded physics bytes on both engines; demo receipts gain `status.whoami`.
+
 ## 0.1.5 — 2026-10-13
 
 - Ship Claude Code and Codex marketplace catalogs in this repository and the release ZIP, with public and verified local install commands.

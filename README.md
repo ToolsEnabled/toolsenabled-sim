@@ -14,11 +14,11 @@ Use Node.js 22 or newer. The release ZIP needs no install: it already includes i
 npm ci --ignore-scripts --no-audit --no-fund
 ```
 
-For the release ZIP, download both files from [v0.1.5](https://github.com/ToolsEnabled/toolsenabled-sim/releases/tag/v0.1.5), then verify before extracting:
+For the release ZIP, download both files from [v0.1.6](https://github.com/ToolsEnabled/toolsenabled-sim/releases/tag/v0.1.6), then verify before extracting:
 
 ```sh
-sha256sum -c toolsenabled-sim-0.1.5.zip.sha256
-unzip toolsenabled-sim-0.1.5.zip
+sha256sum -c toolsenabled-sim-0.1.6.zip.sha256
+unzip toolsenabled-sim-0.1.6.zip
 cd sim
 ```
 
@@ -68,7 +68,7 @@ codex plugin marketplace add ToolsEnabled/toolsenabled-sim
 ```
 
 For an offline Claude Code install from the verified ZIP, add its extracted `sim/` directory as a local marketplace and use the same plugin name. Git-backed installs need `npm ci --ignore-scripts --no-audit --no-fund` in the installed plugin directory before starting the MCP shim; the release ZIP already includes the dependencies. Set Codex's absolute `SIM_CONNECTION` in the host environment before starting it, then install Sim from the Plugins Directory.
-See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.5 release, and native installation still needs qualification. POSIX ownership checks are required; native Windows is not supported in this release.
+See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.6 release, and native installation still needs qualification. POSIX ownership checks are required; native Windows is not supported in this release.
 
 Sim has no dashboard or human-control link. The human starts the hub and finds connection-file paths in its launch terminal. Capture and replay are explicit human-run local commands. Agent file/shell tools running as the same user can read host logs and private connection files; project scope and skill guidance do not provide OS isolation.
 
