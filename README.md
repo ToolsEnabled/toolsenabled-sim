@@ -72,7 +72,7 @@ See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host dia
 
 Sim has no dashboard or human-control link. The human starts the hub and finds connection-file paths in its launch terminal. Capture and replay are explicit human-run local commands. Agent file/shell tools running as the same user can read host logs and private connection files; project scope and skill guidance do not provide OS isolation.
 
-ToolsEnabled is not affiliated with or endorsed by Anthropic. [Privacy](https://toolsenabled.ai/legal/privacy/) · [Support](mailto:support@toolsenabled.ai).
+ToolsEnabled is not affiliated with or endorsed by Anthropic. [Privacy](https://toolsenabled.ai/privacy/) · [Support](mailto:support@toolsenabled.ai).
 
 ## What this plugin runs, sends and reads
 

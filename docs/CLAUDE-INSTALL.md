@@ -4,7 +4,7 @@ Linux tested; native Windows not yet supported.
 
 Plugin and skill name: `toolsenabled-sim`. Node.js 22+ is required. The reviewed ZIP includes pinned offline dependencies; the runtime never installs packages or downloads a browser. Keep the hub, run logs and private connection files outside the versioned plugin cache. The plugin launches only the stdio connection shim and joins an already running shared hub.
 
-ToolsEnabled is not affiliated with or endorsed by Anthropic. [Privacy](https://toolsenabled.ai/legal/privacy/) · [Support](mailto:support@toolsenabled.ai).
+ToolsEnabled is not affiliated with or endorsed by Anthropic. [Privacy](https://toolsenabled.ai/privacy/) · [Support](mailto:support@toolsenabled.ai).
 
 ## Start the shared run
 

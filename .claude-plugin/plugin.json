@@ -8,8 +8,11 @@
     "email": "support@toolsenabled.ai",
     "url": "https://toolsenabled.ai"
   },
-  "homepage": "https://toolsenabled.ai",
+  "homepage": "https://toolsenabled.ai/sim/",
   "repository": "https://github.com/ToolsEnabled/toolsenabled-sim",
+  "documentationUrl": "https://github.com/ToolsEnabled/toolsenabled-sim#readme",
+  "privacyPolicyUrl": "https://toolsenabled.ai/privacy/",
+  "supportUrl": "https://toolsenabled.ai/support/",
   "license": "MIT",
   "keywords": [
     "simulation",

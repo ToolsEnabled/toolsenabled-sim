@@ -41,7 +41,7 @@
     ],
     "brandColor": "#4ddbc6"
   },
-  "homepage": "https://toolsenabled.ai",
+  "homepage": "https://toolsenabled.ai/sim/",
   "repository": "https://github.com/ToolsEnabled/toolsenabled-sim",
   "skills": "./skills/"
 }
