@@ -1,6 +1,6 @@
 {
   "name": "toolsenabled-sim",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Deterministic warehouse robot simulation with shared MCP control and offline multi-camera replay.",
   "author": {
     "name": "ToolsEnabled, Inc.",

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "toolsenabled-sim",
   "display_name": "ToolsEnabled Sim",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Deterministic offline warehouse robot simulation with shared MCP control, delivery guidance and replay.",
   "author": {
     "name": "ToolsEnabled, Inc.",

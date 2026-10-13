@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.7 — 2026-10-13
+
+- Document that Claude Code stores the plugin's `connection_file` once per user, in the Claude configuration directory, not per project, so installing for a second robot rebinds the first. To run several robots on one OS account, give each robot agent its own `CLAUDE_CONFIG_DIR` (or pass a `--settings` file on every launch); README and docs/CLAUDE-INSTALL.md show the commands.
+- Explain that the install message "1 userConfig option not yet set" refers to the optional `run_root` and is expected, and that `--config run_root=…` sets it.
+- Give every MCP tool a top-level `title` (MCP 2025-06-18), equal to its annotation title.
+- Make every render test use the same offline Chromium check as capture, so a missing browser always fails with the clear "Offline Chromium missing" message.
+- Say that Claude Code runs `npm ci --ignore-scripts` itself when it installs from Git (run it by hand only if `node_modules` is missing), and why `claude plugin details` shows `Hooks (0)` while the mod loads.
+- Physics, dependencies and recorded trajectory bytes are unchanged.
+
 ## 0.1.6 — 2026-10-13
 
 - Run the eight action commands (`/toolsenabled-sim:deliver`, `:move`, `:hold`, `:submit`, `:step`, `:assign`, `:scenario`, `:reset`) exactly as typed. Before the model turn the plugin still checks the arguments, that the person typed the action at the terminal or through Remote Control, and the read-only role/mode preflight; it no longer replaces the typed arguments with the preflight's data, and if the check itself fails it refuses instead of letting the command run unchecked.
