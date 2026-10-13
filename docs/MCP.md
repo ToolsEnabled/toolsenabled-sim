@@ -9,7 +9,7 @@ Each successful call contains text JSON and `structuredContent.result`. Tool fai
 | `sim.observe` | Robot/coord | `robotId` | Owned robot pose, agent/task/ledger IDs, assigned `crateId` and `zoneId`, nearby objects within 4 m, all labeled zones, `deliveryRule`, `deliveryAreas`, contacts and 33×13 ASCII map. |
 | `robot.drive` | Robot/coord | `robotId, v, w, duration` | Linear speed −2…2 m/s, yaw speed −π…π rad/s, duration 1/60…5 s. Runs when shared time advances. |
 | `robot.goto` | Robot/coord | `robotId, x, y` | Plan a bounded obstacle-aware path. Max 1.5 m/s and 2.5 rad/s; expires after 1200 ticks (20 s). Failure to reach a target is visible in subsequent poses. |
-| `robot.grab` | Robot/coord | `robotId, crateId` | Assigned, unheld crate within 0.85 m and ±0.4 rad in front. Attach with a physical fixed joint and stop current motion. |
+| `robot.grab` | Robot/coord | `robotId, crateId` | Assigned, unheld crate within 0.85 m and ±0.4 rad in front. Attach rigidly (a Rapier fixed joint or a MuJoCo weld) and stop current motion. |
 | `robot.release` | Robot/coord | `robotId` | Detach the held crate and set its velocity to zero. Delivery requires the whole crate inside its destination zone. |
 | `robot.submit` | Owned robot only, live only | `robotId, round` | Finish this robot’s batch; commit when all active robots have submitted. |
 | `sim.status` | All | none | Tick, simulation seconds, delivered/total, collision episodes, score, completion, remaining ticks, `deliveryRule` and `deliveryAreas`. |
@@ -40,6 +40,8 @@ After each robot has submitted its motion, the coordinator advances one simulati
 ```
 
 Motion commands accepted at the same tick are applied in request order; the latest motion replaces the prior one for that robot. Physics processes robots in sorted ID order. Logging contains the accepted command order, so replay does not depend on the wall-clock timing of concurrent clients. Manual hubs never step on a timer. Live hubs use the submission/deadline barrier in [LIVE.md](LIVE.md). Grab, release and assignment changes occur at the current tick boundary and are included in the next tick's `events`; complete trailing commands remain in the action journal even if no further step occurs.
+
+The physics engine is chosen by the human who starts the hub (`--engine rapier`, the default, or `--engine mujoco`); no connection or tool argument can change it, and reset and scenario changes keep it. Tool catalogs and schemas are identical on both engines. The engine is recorded in the trajectory header and shown by `/sim runs`.
 
 Score is `100 × delivered crates − 10 × contact beginnings`. Contact beginnings involving a robot or crate count once per newly active collider pair; the attached robot/crate pair is excluded. Persistent contact is exposed in `contacts`. Repeatedly separating and touching counts additional episodes.
 

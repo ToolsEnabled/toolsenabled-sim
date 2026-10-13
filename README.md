@@ -1,20 +1,31 @@
 # ToolsEnabled Sim
 
-A shared warehouse for three or four wheeled robots. Each agent controls one robot through MCP; a coordinator assigns crates and advances the world in lockstep. Rapier runs the physics in Node. Three.js replays the resulting log into first-person, chase, overhead and combined views, without a model or internet connection.
+Linux tested; native Windows not yet supported.
+
+A shared warehouse for three or four wheeled robots. Each agent controls one robot through MCP; a coordinator assigns crates and advances the world in lockstep. Rapier runs the physics in Node by default; `--engine mujoco` runs the same warehouse on MuJoCo. Three.js replays the resulting log into first-person, chase, overhead and combined views, without a model or internet connection.
 
 The included warehouse demo delivers three crates in ten seconds of simulation time, with no collisions. It launches four real stdio MCP clients: one coordinator and three scripted robot agents.
 
 ## Run the demo
 
-Use Node.js 22 or newer. The offline distribution already includes its pinned npm dependencies. From a source checkout, use the supplied npm cache:
+Use Node.js 22 or newer. The release ZIP needs no install: it already includes its pinned npm dependencies. A Git checkout installs them first; `package-lock.json` pins the four packages by registry integrity, and `--offline --cache DIR` works only with a cache you filled from this lockfile beforehand:
 
 ```sh
-npm ci --offline --cache /path/to/npm-cache --ignore-scripts --no-audit --no-fund
+npm ci --ignore-scripts --no-audit --no-fund
+```
+
+Then run the demo on each engine and verify its recording:
+
+```sh
 node tools/demo.mjs --output ./runs/demo
 node tools/replay.mjs ./runs/demo
+node tools/demo.mjs --output ./runs/demo-mujoco --engine mujoco
+node tools/replay.mjs ./runs/demo-mujoco
 ```
 
 The output directory must be new. No model, agent CLI, cloud service, browser or GPU is required for the simulation. `replay` verifies the complete hash chain, re-executes the action journal in fresh physics, and compares the trajectory bytes.
+
+Two deterministic WebAssembly physics engines are pinned in `package-lock.json`: Rapier (`@dimforge/rapier3d-compat` 0.17.3, the default) and MuJoCo (`@mujoco/mujoco` 3.14.0, selected with `--engine mujoco`). The Rapier world has no gravity or friction. The MuJoCo world turns gravity, floor friction and bounded motor forces on: crates are free boxes that slide and stop under friction, a grabbed crate is welded 0.75 m in front of its robot, and go-to brakes early enough to stop on target. The engine is recorded in each run's trajectory header, and `replay` rebuilds the world on the recorded engine. The included demo delivers all three crates with no collisions on either engine.
 
 ## Connect agents
 
@@ -24,7 +35,7 @@ Start one hub for the shared world:
 node src/hub-cli.mjs --root /absolute/private-sim-run
 ```
 
-It prints paths to private connection files. Keep this process running. Give each MCP host only the connection for its assigned robot; keep the coordinator connection with the coordinator. All connections attach to this same world. Generate a client configuration without modifying your settings:
+It prints paths to private connection files. Keep this process running. Add `--engine mujoco` to run the shared world on MuJoCo; the default is `rapier`. The engine is fixed for the life of the hub: reset and scenario changes rebuild the world on the same engine, and no tool argument can change it. Give each MCP host only the connection for its assigned robot; keep the coordinator connection with the coordinator. All connections attach to this same world. Generate a client configuration without modifying your settings:
 
 ```sh
 node tools/mcp-config.mjs --client codex --connection ./runs/shared/connection-amber.json
@@ -36,15 +47,26 @@ The coordinator calls `sim.step` after collecting commands from the robots. A sl
 
 ## Claude plugin
 
-The `toolsenabled-sim` plugin connects to the shared hub using one agent’s private connection-file path. Install it at local project scope from a verified marketplace snapshot. See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. Provides a Claude Desktop bundle; native installation still needs qualification. POSIX ownership checks are required; native Windows is not supported in this release.
+The `toolsenabled-sim` plugin connects to the shared hub using one agent’s private connection-file path. Install it at local project scope from a verified marketplace snapshot. This source ships no marketplace catalog; the snapshot's `toolsenabled-sim` entry points at the release archive published on [github.com/ToolsEnabled/toolsenabled-sim](https://github.com/ToolsEnabled/toolsenabled-sim/releases). Confirm the archive digest before adding the snapshot, then install from it:
+
+```sh
+claude plugin marketplace add /absolute/verified-marketplace
+claude plugin install toolsenabled-sim@toolsenabled -s local --config connection_file=/absolute/private-sim-run/connection-amber.json
+```
+
+See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. Provides a Claude Desktop bundle; native installation still needs qualification. POSIX ownership checks are required; native Windows is not supported in this release.
 
 Sim has no dashboard or human-control link. The human starts the hub and finds connection-file paths in its launch terminal. Capture and replay are explicit human-run local commands. Agent file/shell tools running as the same user can read host logs and private connection files; project scope and skill guidance do not provide OS isolation.
 
 ToolsEnabled is not affiliated with or endorsed by Anthropic. [Privacy](https://toolsenabled.ai/legal/privacy/) · [Support](mailto:support@toolsenabled.ai).
 
+## Commands
+
+Open `/sim help` for local status, robots, map, runs, events, scenarios, replay guidance and connection panes. Request actions with the native names `/toolsenabled-sim:deliver`, `:move`, `:hold`, `:submit`, `:step`, `:assign`, `:scenario` and `:reset`; help prints their full spellings and role gates. Actions keep normal tool approvals and bind the robot ID before the model turn. Codex uses `!node /absolute/sim/tools/sim-view.mjs <view>` and `$toolsenabled-sim:toolsenabled-sim <action>`. See the complete [command table](docs/COMMANDS.md), including optional `run_root` / `SIM_RUN_ROOT` for archived history.
+
 ## Live mode
 
-Run `node tools/live.mjs --root /absolute/private-live-run --work-record /absolute/work-record.json` to print per-agent Claude Code and Codex registration and start the shared live clock. The work record includes the real `driverLabel` for each agent. Every active robot finishes a round with `robot.submit`; the launcher steps when all have submitted or a **120-second wall-clock budget** expires. Missing robots hold. Round tokens reject late commands. Physics and frame replay remain deterministic. See [docs/LIVE.md](docs/LIVE.md) for registration, the agent loop, options and replay behavior.
+Run `node tools/live.mjs --root /absolute/private-live-run --work-record /absolute/work-record.json` to print per-agent Claude Code and Codex registration and start the shared live clock. `--engine mujoco` runs the live world on MuJoCo. The work record includes the real `driverLabel` for each agent. Every active robot finishes a round with `robot.submit`; the launcher steps when all have submitted or a **120-second wall-clock budget** expires. Missing robots hold. Round tokens reject late commands. Physics and frame replay remain deterministic. See [docs/LIVE.md](docs/LIVE.md) for registration, the agent loop, options and replay behavior.
 
 ## Render offline
 
@@ -80,12 +102,37 @@ env -u DISPLAY -u WAYLAND_DISPLAY -u DBUS_SESSION_BUS_ADDRESS npm test
 
 The full suite includes actual headless Chromium rendering and fails clearly if its offline runtime is missing. Set the browser environment above first. For physics/MCP-only diagnosis, run `node --test --test-concurrency=1 test/core.test.mjs test/mcp.test.mjs test/physics-safety.test.mjs test/security.test.mjs`; this is a subset, not the full verification gate.
 
-The world is a planar rigid-body approximation: velocity-controlled wheeled robots, fixed-joint grasping, no wheel slip, ramps, gravity, cameras-as-sensors or learning. Path following is a bounded grid planner with line-of-sight simplification; it accounts for obstacles and current robot/crate positions, and does not predict other robots' future paths. A coordinator must schedule crossing traffic. Contacts are counted and penalized; path planning does not promise collision-free motion for arbitrary concurrent commands. New commands replace the current motion at a tick boundary. Seed and scene are recorded; this version has no stochastic noise.
+The world is a planar rigid-body approximation: velocity-controlled wheeled robots, rigid grasping (a fixed joint in Rapier, a weld in MuJoCo), no wheel slip, ramps, cameras-as-sensors or learning. Rapier runs without gravity or friction; MuJoCo adds gravity, floor friction and bounded motor forces, and still drives robots in the plane. Path following is a bounded grid planner with line-of-sight simplification; it accounts for obstacles and current robot/crate positions, and does not predict other robots' future paths. A coordinator must schedule crossing traffic. Contacts are counted and penalized; path planning does not promise collision-free motion for arbitrary concurrent commands. New commands replace the current motion at a tick boundary. Seed and scene are recorded; this version has no stochastic noise.
 
-Physics replay is byte-identical with the pinned engine and same action log on the tested Node/platform. Frame identity requires the same Chromium binary, SwiftShader runtime, platform and renderer; no cross-GPU or cross-browser guarantee is made. Render receipts record the browser version, executable SHA-256 and flags. The local tools do not isolate hostile processes running as the same operating-system user; see [SECURITY.md](SECURITY.md).
+Physics replay is byte-identical with the recorded engine's pinned package and the same action log on the tested Node/platform. Frame identity requires the same Chromium binary, SwiftShader runtime, platform and renderer; no cross-GPU or cross-browser guarantee is made. Render receipts record the browser version, executable SHA-256 and flags. The local tools do not isolate hostile processes running as the same operating-system user; see [SECURITY.md](SECURITY.md).
 
 Release validation also runs `python3 test/deepseek-config.test.py` with the offline PyYAML 6.0.3 test dependency. It parses the emitted DeepSeek YAML and verifies the Cordis overlay structure and exact connection arguments. PyYAML is only a test prerequisite; the plugin has no Python runtime dependency.
 
 The optional Fleet release regression is `SIM_FLEET_ROOT=/path/to/fleet-source node --test test/fleet-proof.integration.mjs`; it runs a real isolated proof and checks every ledger event and completed record for actor `local`.
 
 No provider credentials or model calls are needed.
+
+## Command and Codex reference
+
+| Claude command (view) | What it shows | Codex equivalent |
+| --- | --- | --- |
+| `/sim` or `/sim status` | Bound identity, score, stop reason, live round and deadline remaining | `!node <sim-dir>/tools/sim-view.mjs status` |
+| `/sim help` | Every command, role/mode gate and equivalent | `!node <sim-dir>/tools/sim-view.mjs help` |
+| `/sim robots` | Own work, action/caller and delivery bounds; peers' poses and holding only | `!node <sim-dir>/tools/sim-view.mjs robots` |
+| `/sim map` | 33×13 map, zone labels and delivery areas | `!node <sim-dir>/tools/sim-view.mjs map` |
+| `/sim runs` | Retained results, mode, seed, engine and final hash | `!node <sim-dir>/tools/sim-view.mjs runs --root <absolute-root>` |
+| `/sim events [run-NNNN]` | Merged action and round history with real caller attribution | `!node <sim-dir>/tools/sim-view.mjs events --run run-0001` |
+| `/sim scenarios [absolute-file]` | Shipped/current scene summaries; optional pure validation | `!node <sim-dir>/tools/sim-view.mjs scenarios --check <absolute-file>` |
+| `/sim replay [run-NNNN]` | Exact human-run replay/capture instructions when the root is known | `!node <sim-dir>/tools/sim-view.mjs replay --run run-0001` |
+| `/sim connection` | Configured path, owner/mode checks, reachability, role, Node and plugin version | `!node <sim-dir>/tools/sim-view.mjs connection` |
+
+| Claude command (action) | Arguments and gate | Codex skill invocation |
+| --- | --- | --- |
+| `/toolsenabled-sim:deliver` | Robot: no argument; manual coordinator: explicit robot ID. Deliver the assigned crate only. | `$toolsenabled-sim:toolsenabled-sim deliver [robot]` |
+| `/toolsenabled-sim:move` | Robot: x y; manual coordinator: robot x y. Finite coordinates inside the arena and −30…30. | `$toolsenabled-sim:toolsenabled-sim move [robot] <x> <y>` |
+| `/toolsenabled-sim:hold` | Robot: no argument; manual coordinator: explicit robot ID. Keep held crate attached. | `$toolsenabled-sim:toolsenabled-sim hold [robot]` |
+| `/toolsenabled-sim:submit` | Active live robot only, once per current round. | `$toolsenabled-sim:toolsenabled-sim submit` |
+| `/toolsenabled-sim:step` | Manual coordinator only; 1–60 ticks, default 60. | `$toolsenabled-sim:toolsenabled-sim step [n]` |
+| `/toolsenabled-sim:assign` | Manual coordinator: robot crate task-id ledger-id. | `$toolsenabled-sim:toolsenabled-sim assign <robot> <crate> <task-id> <ledger-id>` |
+| `/toolsenabled-sim:scenario` | Coordinator: absolute JSON file, validated against current assignments. | `$toolsenabled-sim:toolsenabled-sim scenario <absolute-file>` |
+| `/toolsenabled-sim:reset` | Coordinator: no arguments. Restart everyone's shared world and round; old logs remain. | `$toolsenabled-sim:toolsenabled-sim reset` |

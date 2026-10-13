@@ -68,7 +68,9 @@ def scan(root):
             decoder = lzma.LZMADecompressor(format=lzma.FORMAT_XZ, memlimit=MAX_FILE)
         elif len(data) >= 2 and data[0] & 15 == 8 and data[0] >> 4 <= 7 and int.from_bytes(data[:2], 'big') % 31 == 0:
             decoder = zlib.decompressobj()
-        elif len(data) >= 13 and data[0] <= 224 and (int.from_bytes(data[1:5], 'little') <= MAX_FILE or data[5:13] == b'\xff' * 8 or int.from_bytes(data[5:13], 'little') <= MAX_EXPANDED):
+        elif len(data) >= 13 and data[0] <= 224 and (int.from_bytes(data[1:5], 'little') <= MAX_FILE or data[5:13] == b'\xff' * 8 or int.from_bytes(data[5:13], 'little') <= MAX_EXPANDED or len(data) > 13 and data[13] == 0):
+            # LZMA's range coder starts with zero, even when both header sizes
+            # exceed our bounds. Let the bounded decoder refuse those claims.
             tentative_lzma = True
             decoder = lzma.LZMADecompressor(format=lzma.FORMAT_ALONE, memlimit=MAX_FILE)
         if decoder is not None:

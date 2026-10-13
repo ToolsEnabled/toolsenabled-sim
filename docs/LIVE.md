@@ -36,6 +36,7 @@ Options:
 | `--active` | All robots | Comma-separated participating robot IDs. Inactive robots hold on each step. |
 | `--max-ticks` | `36000` | Total bounded run length, 1–36000 ticks. |
 | `--scenario` | Included warehouse | Validated scene JSON. |
+| `--engine` | `rapier` | Physics engine for the shared world: `rapier` or `mujoco`. |
 | `--json` | Off | Emit structured registrations/configuration instead of directly copyable commands. |
 
 ## Step size and recording limits

@@ -9,6 +9,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import re
 import tempfile
 import subprocess
 import shutil
@@ -114,6 +115,19 @@ class PackagingTests(unittest.TestCase):
                 factory.return_value.decompress.side_effect=[b'output',lzma.LZMAError('Input format not supported by decoder')]
                 with self.assertRaisesRegex(ValueError,'invalid compressed stream refused'):handoff.scan(root)
 
+    def test_oversized_lzma_header_cannot_hide_recoverable_content(self):
+        handoff=module('handoff')
+        sentinel=b'-----BEGIN '+b'PRIVATE KEY-----\nsynthetic\n'
+        payload=bytearray(lzma.compress(sentinel+b'A'*20000,format=lzma.FORMAT_ALONE))
+        payload[1:5]=(128*1024*1024).to_bytes(4,'little')
+        payload[5:13]=(handoff.MAX_EXPANDED+1).to_bytes(8,'little')
+        self.assertEqual(payload[13],0)
+        with self.assertRaisesRegex(lzma.LZMAError,'Memory usage limit exceeded'):
+            lzma.LZMADecompressor(format=lzma.FORMAT_ALONE,memlimit=handoff.MAX_FILE).decompress(payload)
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'notes.txt').write_bytes(payload)
+            with self.assertRaisesRegex(ValueError,'invalid compressed stream refused'):handoff.scan(root)
+
     def test_scanner_accepts_its_own_packaged_source(self):
         handoff = module('handoff')
         with tempfile.TemporaryDirectory() as tmp:
@@ -145,6 +159,10 @@ class PackagingTests(unittest.TestCase):
         self.assertIn('src/mcp.mjs', files)
         self.assertIn('skills/toolsenabled-sim/SKILL.md', files)
         self.assertIn('node_modules/@dimforge/rapier3d-compat/rapier.es.js', files)
+        for name in ['src/engines/index.mjs','src/engines/rapier.mjs','src/engines/mujoco.mjs','node_modules/@mujoco/mujoco/mujoco.js','node_modules/@mujoco/mujoco/mujoco.wasm']:
+            self.assertIn(name, files)
+        for name in ['mujoco.wasm.map','mujoco.d.ts','README.md','mt/mujoco.js','mt/mujoco.wasm']:
+            self.assertNotIn('node_modules/@mujoco/mujoco/'+name, files)
         self.assertEqual(files, sorted(set(files)))
         self.assertNotIn('server.json', files)
         self.assertFalse(any('/.git/' in f or f.endswith(('.zip','.mcpb','.pem')) for f in files))
@@ -155,9 +173,31 @@ class PackagingTests(unittest.TestCase):
         loaded.update('node_modules/playwright-core/' + name for name in
                       ['browsers.json','index.js','index.mjs','lib/bootstrap.js','lib/coreBundle.js','lib/utilsBundle.js','package.json'])
         loaded.update('node_modules/three/build/' + name for name in ['three.core.js','three.module.js'])
-        required = {'node_modules/@dimforge/rapier3d-compat/package.json', 'node_modules/three/package.json', 'node_modules/three/LICENSE'}
+        loaded.update('node_modules/@mujoco/mujoco/' + name for name in ['mujoco.js','mujoco.wasm'])
+        required = {'node_modules/@dimforge/rapier3d-compat/package.json', 'node_modules/@mujoco/mujoco/package.json', 'node_modules/three/package.json', 'node_modules/three/LICENSE'}
         required.update('node_modules/playwright-core/' + name for name in ['LICENSE','NOTICE','ThirdPartyNotices.txt','lib/utilsBundle.js.LICENSE','lib/webp_codec.LICENSE'])
         self.assertEqual({f for f in files if f.startswith('node_modules/')}, loaded | required)
+
+    def test_trace_checker_counts_a_standalone_wasm_read_as_loaded(self):
+        checker=ROOT/'tools/check-dependency-trace.mjs'
+        inventory={'glue':{'license':'Apache-2.0','notices':[],'version':'1.0.0','files':{
+            'glue.js':{'purpose':'runtime','sha256':'0'*64},'glue.wasm':{'purpose':'runtime','sha256':'0'*64},'package.json':{'purpose':'metadata','sha256':'0'*64}}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/'root';(root/'tools').mkdir(parents=True);(root/'tools/dependency-files.json').write_text(json.dumps(inventory))
+            trace=Path(tmp)/'trace';trace.mkdir()
+            def run(lines):
+                (trace/'1.jsonl').write_text(''.join(json.dumps(line)+'\n' for line in lines))
+                return subprocess.run(['node',str(checker),str(root),str(trace)],capture_output=True,text=True)
+            def refused(lines):
+                result=run(lines);self.assertNotEqual(result.returncode,0)
+                return json.loads(re.search(r'\{"unloaded".*?\}',result.stderr).group(0))
+            glue={'file':'node_modules/glue/glue.js','kind':'module'};wasm={'file':'node_modules/glue/glue.wasm','kind':'read'}
+            # The JavaScript glue reads its standalone binary through fs, not the module loader.
+            result=run([glue,wasm]);self.assertEqual(result.returncode,0,result.stderr)
+            self.assertEqual(json.loads(result.stdout)['loaded'],['node_modules/glue/glue.js','node_modules/glue/glue.wasm'])
+            self.assertEqual(refused([glue,wasm|{'kind':'stream'}])['unloaded'],['node_modules/glue/glue.wasm'])
+            self.assertEqual(refused([glue|{'kind':'read'},wasm])['unloaded'],['node_modules/glue/glue.js'])
+            self.assertEqual(refused([glue,wasm,wasm|{'file':'node_modules/glue/other.wasm'}])['unshipped'],['node_modules/glue/other.wasm'])
 
     def test_packagers_validate_lock_identity_and_reviewed_file_hashes(self):
         pack = module('package-mcpb')

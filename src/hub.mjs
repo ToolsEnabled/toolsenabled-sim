@@ -1,27 +1,46 @@
 import http from 'node:http';
 import {randomBytes} from 'node:crypto';
-import {mkdirSync,openSync,closeSync,writeSync,writeFileSync,readFileSync,readdirSync,unlinkSync,realpathSync,lstatSync,existsSync} from 'node:fs';
+import {mkdirSync,openSync,closeSync,writeSync,writeFileSync,readFileSync,readdirSync,unlinkSync,realpathSync,lstatSync,existsSync,renameSync} from 'node:fs';
 import {join} from 'node:path';
 import {createSim,validateScenario,validateAssignments} from './sim.mjs';
 import {privateRoot} from './private-files.mjs';
 import {fairScheduler} from './scheduler.mjs';
 import {createLive,liveOptions} from './live.mjs';
 import {toolList,validateCall} from './schema.mjs';
+import {readView} from './views.mjs';
 export const defaultScenario=()=>JSON.parse(readFileSync(new URL('../scenarios/warehouse.json',import.meta.url)));
 export const defaultAssignments=scene=>scene.robots.map((r,i)=>({robotId:r.id,agentId:`script-${r.id}`,crateId:scene.crates[i].id,taskId:`script-task-${r.id}`,ledgerId:`script-ledger-${r.id}`}));
-export async function startHub({root,scenario=defaultScenario(),assignments=defaultAssignments(scenario),maxTicks=36000,maxRunBytes=128*1024*1024,live}={}){
+export async function startHub({root,scenario=defaultScenario(),assignments=defaultAssignments(scenario),maxTicks=36000,maxRunBytes=128*1024*1024,live,engine='rapier',onWarning=message=>process.stderr.write(message+'\n')}={}){
  const liveConfig=liveOptions(live,scenario);
  if(!root)throw new Error('A private run root is required');
  mkdirSync(root,{recursive:true,mode:0o700});root=privateRoot(root);
  const lockPath=join(root,'hub.lock'),lock=openSync(lockPath,'wx',0o600);writeSync(lock,`${process.pid}\n`);
  let sim,recordFd,actionFd,liveFd,liveControl,runDir,server,broken=false,closed=false;let sequence=0;
  const capabilities=new Map(),connections={};
+ const instanceId=randomBytes(16).toString('hex');
+ // The current-run pointer is a best-effort view sidecar. The journals are the record: a failed
+ // pointer write is reported once, never fails the action that triggered it and never stops a
+ // live hub. The next successful write replaces the stale pointer.
+ let pointerError=null;
+ function publishViewState(){
+  const path=join(root,`.view-${randomBytes(8).toString('hex')}.tmp`);
+  try{
+   writeFileSync(path,JSON.stringify({schema:'ai.toolsenabled/sim-current/v1',instanceId,run:`run-${String(sequence).padStart(4,'0')}`,closed,mode:liveConfig?'live':'manual',live:liveControl?.viewStatus()||null})+'\n',{flag:'wx',mode:0o600});
+   renameSync(path,join(root,'current-run.json'));
+   if(pointerError){pointerError=null;warn('Current-run pointer writes resumed.');}
+  }catch(e){
+   const code=typeof e?.code==='string'&&/^[A-Z0-9_]{1,32}$/.test(e.code)?e.code:'error';
+   if(pointerError!==code)warn(`Current-run pointer not updated (${code}). The hub keeps running; journals are unaffected.`);
+   pointerError=code;
+  }finally{try{unlinkSync(path);}catch{}}
+ }
+ function warn(message){try{onWarning(message);}catch{}}
  try{
   async function newRun(s,a){
    s=validateScenario(s);a=validateAssignments(a,s);
    // The robot-to-agent mapping remains stable for this hub's client capabilities.
    if(sim&&JSON.stringify(a.map(x=>[x.robotId,x.agentId,x.driverLabel]))!==JSON.stringify(sim.header.assignments.map(x=>[x.robotId,x.agentId,x.driverLabel])))throw new Error('Restart the hub to change the stable agent mapping');
-   const next=await createSim({scenario:s,assignments:a,maxTicks,maxRunBytes,retainLog:false,live:!!liveConfig});
+   const next=await createSim({scenario:s,assignments:a,maxTicks,maxRunBytes,engine,retainLog:false,live:!!liveConfig});
    let index=1;while(existsSync(join(root,`run-${String(index).padStart(4,'0')}`)))index++;
    const dir=join(root,`run-${String(index).padStart(4,'0')}`);mkdirSync(dir,{mode:0o700});
    let rf,af,lf;
@@ -30,18 +49,20 @@ export async function startHub({root,scenario=defaultScenario(),assignments=defa
     rf=openSync(join(dir,'trajectory.jsonl'),'wx',0o600);af=openSync(join(dir,'actions.jsonl'),'wx',0o600);
     writeFileSync(join(dir,'scenario.json'),JSON.stringify(s,null,2)+'\n',{flag:'wx',mode:0o600});
     writeFileSync(join(dir,'work-record.json'),JSON.stringify({version:1,assignments:a},null,2)+'\n',{flag:'wx',mode:0o600});
+    writeFileSync(join(dir,'view-meta.json'),JSON.stringify({schema:'ai.toolsenabled/sim-run-view/v1',mode:liveConfig?'live':'manual',liveOptions:liveConfig})+'\n',{flag:'wx',mode:0o600});
     // Re-create with append sinks after successful validation/allocation.
-    next.close();const fresh=await createSim({scenario:s,assignments:a,maxTicks,maxRunBytes,retainLog:false,live:!!liveConfig,onRecord:line=>writeSync(rf,line),onAction:line=>writeSync(af,line)});
+    next.close();const fresh=await createSim({scenario:s,assignments:a,maxTicks,maxRunBytes,engine,retainLog:false,live:!!liveConfig,onRecord:line=>writeSync(rf,line),onAction:line=>writeSync(af,line)});
     if(sim)sim.close();if(recordFd!==undefined)closeSync(recordFd);if(actionFd!==undefined)closeSync(actionFd);if(liveFd!==undefined)closeSync(liveFd);
     sim=fresh;liveFd=lf;recordFd=rf;actionFd=af;runDir=dir;sequence=index;
    }catch(e){next.close();if(rf!==undefined)closeSync(rf);if(af!==undefined)closeSync(af);if(lf!==undefined)closeSync(lf);throw e;}
    liveControl?.reset();
+   publishViewState();
    return {run:`run-${String(index).padStart(4,'0')}`,status:sim.status()};
   }
   await newRun(scenario,assignments);
   const scheduler=fairScheduler(),inFlight=new Map(),launcherKey=Symbol('launcher');
   const enqueue=fn=>scheduler.enqueue(launcherKey,fn);
-  if(liveConfig)liveControl=createLive({options:liveConfig,getSim:()=>sim,getSequence:()=>sequence,enqueue,record:entry=>{const line=JSON.stringify(entry)+'\n';sim.accountAuditBytes(Buffer.byteLength(line));writeSync(liveFd,line);},onError:e=>{if(e.code!=='RUN_BYTE_BUDGET'){broken=true;liveControl.close();}}});
+  if(liveConfig)liveControl=createLive({options:liveConfig,getSim:()=>sim,getSequence:()=>sequence,enqueue,record:entry=>{const line=JSON.stringify(entry)+'\n';sim.accountAuditBytes(Buffer.byteLength(line));writeSync(liveFd,line);},onError:e=>{if(e.code!=='RUN_BYTE_BUDGET'){broken=true;liveControl.close();}},onChange:publishViewState});
   const dispatch=async(identity,request)=>{
    if(broken)throw new Error('Hub stopped after storage failure');
    try{liveControl?.expire();}catch(e){if(e.code!=='RUN_BYTE_BUDGET'){broken=true;liveControl?.close();}throw e;}
@@ -61,13 +82,23 @@ export async function startHub({root,scenario=defaultScenario(),assignments=defa
     }
     return sim.invoke(identity,name,args);}catch(e){if(['EIO','ENOSPC','EBADF'].includes(e.code)){broken=true;liveControl?.close();}throw e;}
   };
+  const viewingNow=new Set();
   server=http.createServer({headersTimeout:2000,requestTimeout:2000,connectionsCheckingInterval:500},(req,res)=>{
    const send=(code,body)=>{if(res.destroyed||res.writableEnded)return;res.writeHead(code,{'Content-Type':'application/json','Cache-Control':'no-store',...(code!==200?{Connection:'close'}:{})});res.end(JSON.stringify(body));};
    if(closed){send(503,{error:'Hub closing'});return;}
    if(req.headers.origin||req.headers.host!==`127.0.0.1:${server.address().port}`){send(403,{error:'Loopback origin required'});return;}
    const identity=capabilities.get(req.headers.authorization);if(!identity){send(401,{error:'Connection capability required'});return;}
    clearTimeout(req.socket.preAuthTimer);
-   if(req.method!=='POST'||req.url!=='/call'){send(404,{error:'Unknown route'});return;}
+   const viewing=req.method==='GET'&&req.url.startsWith('/view?');
+   if(!viewing&&(req.method!=='POST'||req.url!=='/call')){send(404,{error:'Unknown route'});return;}
+   if(viewing){
+    if(viewingNow.has(identity)){send(429,{error:'View request already in progress'});return;}
+    viewingNow.add(identity);
+    // A view never enters the mutation scheduler, spends its quota or expires a round.
+    setImmediate(()=>{try{
+     if(!res.destroyed)send(200,readView({root,sim,live:liveControl,instanceId,run:`run-${String(sequence).padStart(4,'0')}`},identity,new URL(req.url,'http://localhost').searchParams));
+    }catch(e){send(e.status||400,{error:e.status?e.message:'Sim view is unavailable.'});}finally{viewingNow.delete(identity);}});return;
+   }
    if((inFlight.get(identity)||0)>=4){send(429,{error:'Capability request quota exceeded'});return;}
    inFlight.set(identity,(inFlight.get(identity)||0)+1);
    let queued=false,released=false,data='',size=0;
@@ -98,8 +129,8 @@ export async function startHub({root,scenario=defaultScenario(),assignments=defa
    for(const path of Object.values(connections))attempt(()=>unlinkSync(path));
    attempt(()=>closeSync(lock));attempt(()=>unlinkSync(lockPath));if(errors.length)throw new AggregateError(errors,'Hub cleanup failed');
   };
-  return {url,connections,get runDir(){return runDir;},get sequence(){return sequence;},async close(){
-   if(closed)return;closed=true;liveControl?.close();
+  return {url,connections,engine:sim.header.engine,get runDir(){return runDir;},get sequence(){return sequence;},get pointerError(){return pointerError;},async close(){
+   if(closed)return;closed=true;liveControl?.close();publishViewState();
    try{await scheduler.drain();server.closeAllConnections();await new Promise((r,j)=>server.close(e=>e?j(e):r()));}finally{releaseResources();}
   }};
  }catch(e){liveControl?.close();if(server)server.close();if(sim)sim.close();if(recordFd!==undefined)closeSync(recordFd);if(actionFd!==undefined)closeSync(actionFd);if(liveFd!==undefined)closeSync(liveFd);try{for(const path of Object.values(connections)){try{unlinkSync(path);}catch{}}}finally{closeSync(lock);try{unlinkSync(lockPath);}catch{}}throw e;}

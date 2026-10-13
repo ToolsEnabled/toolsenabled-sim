@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.4 — 2026-10-12
+
+0.1.3 was an internal handoff and was never published; every change listed under it ships for the first time in this release.
+
+- Add MuJoCo as an optional physics engine. `--engine mujoco` on the hub CLI, the demo and the live launcher runs the same warehouse on the official MuJoCo WebAssembly build, pinned as `@mujoco/mujoco` 3.14.0: gravity, floor friction and bounded motor forces are on, crates are free boxes that slide and stop under friction, a grabbed crate is welded 0.75 m in front of its robot, and go-to brakes early enough to stop on target. The scripted demo delivers 3/3 crates with no collisions on either engine and replays byte-identically.
+- Keep Rapier the default. It now sits behind the same engine interface and is called in exactly the order the earlier code used, so every existing recording replays byte-identically; the demo trajectory bytes are unchanged since 0.1.2.
+- Record the engine in every trajectory header and show it in the demo receipt and `/sim runs`. Replay rebuilds the world on the recorded engine. Version-2 headers accept either engine; version-1 headers must name Rapier. Reset and scenario changes keep the hub's engine; no tool argument can change it.
+- Carry the two handoff-3 fixes listed under 0.1.3: pane readers and action preflights start with an explicit environment allowlist that excludes client credentials (P-ENV), and every reserved pane key is handled in every pane state (P-KEYS).
+- Make the private current-run pointer write best-effort: a failed sidecar write is reported once per error code on stderr (startHub `onWarning`, `hub.pointerError`), never fails the command that triggered it and never stops a live hub; the next successful write replaces the stale pointer.
+- Refuse `--engine` with no value on the hub CLI and the demo instead of silently running Rapier, check the demo's engine before it creates the output directory, refuse a version-1 recording on MuJoCo and an unknown engine id in `replayActions`, keep MuJoCo joint, actuator and weld names distinct for every valid scene id, print one-line errors from the demo, replay and configuration helpers, and declare the MIT license in package.json.
+- Document `--engine` and the install line in the README, design, MCP, live, replay and installation documents.
+
+## 0.1.3 — 2026-10-02
+
+- Start pane readers and action preflights with an explicit environment allowlist, excluding client credentials before Node starts.
+- Keep every reserved pane key handled in loading, error, detail and boundary states, with no-op hints and an active-only Keys line. Closing during a read discards the late result.
+- Add `/sim` read-only panes for status, help, robots, map, runs, events, scenarios, replay guidance and connection diagnostics. Use a separate capability-authenticated view quota, without expiring rounds or entering the mutation queue. Bound and sanitize reads; keep peer work mappings private and pin paged history revisions.
+- Add eight native Claude action commands with before-turn role/mode checks and explicit bound robot IDs. Keep normal tool approvals; provide the matching namespaced Codex skill verbs and read-only CLI.
+- Retain an owner-only current-run pointer and live deadline metadata outside deterministic recordings. Support optional absolute `run_root` / `SIM_RUN_ROOT` for offline history; unknown offline identities see public poses and shared launcher commits only.
+- Refuse a hidden LZMA stream even when its header claims both an oversized dictionary and expanded size. Preserve ordinary Python bytecode acceptance and fail closed on corrupt or memory-limited compressed inputs.
+- Preserve physics, renderer and replay journal bytes. Real terminal/client qualification is recorded separately from local hook and reader tests.
+
 ## 0.1.2 — 2026-10-01
 
 - Refuse an agent's drive/goto with `MOTION_BYTE_BUDGET` when only its future motion reservation exceeds remaining run space. Leave the run active so peers and the live barrier can continue. A failed control/frame reservation still stops the run cleanly with `RUN_BYTE_BUDGET`.

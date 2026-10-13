@@ -1,9 +1,11 @@
 import {readFileSync,readdirSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
+// Loaded means imported as a module, served as a replay asset, or, for a standalone .wasm binary,
+// read from the file system by its JavaScript glue (MuJoCo loads mujoco.wasm this way).
 export function checkDependencyTrace(root,directory){
  const inventory=JSON.parse(readFileSync(join(root,'tools/dependency-files.json'),'utf8')),loaded=new Set(),required=new Set(),allowed=new Set();
- for(const name of readdirSync(directory)){if(name.endsWith('.jsonl'))for(const line of readFileSync(join(directory,name),'utf8').trim().split('\n').filter(Boolean)){const entry=JSON.parse(line);if(entry.kind==='module'||entry.kind==='server-asset')loaded.add(entry.file);}}
+ for(const name of readdirSync(directory)){if(name.endsWith('.jsonl'))for(const line of readFileSync(join(directory,name),'utf8').trim().split('\n').filter(Boolean)){const entry=JSON.parse(line);if(entry.kind==='module'||entry.kind==='server-asset'||(entry.kind==='read'&&entry.file.endsWith('.wasm')))loaded.add(entry.file);}}
  for(const [name,dependency] of Object.entries(inventory))for(const [relative,{purpose}] of Object.entries(dependency.files)){
   const file=`node_modules/${name}/${relative}`;allowed.add(file);if(purpose==='runtime')required.add(file);else if(!['metadata','license'].includes(purpose))throw Error('Invalid dependency purpose');
  }

@@ -16,6 +16,27 @@
     },
     "version": "0.17.3"
   },
+  "@mujoco/mujoco": {
+    "license": "Apache-2.0",
+    "notices": [
+      "licenses/Apache-2.0.txt"
+    ],
+    "files": {
+      "mujoco.js": {
+        "purpose": "runtime",
+        "sha256": "bc6980e4bc5ee5f809a6cabde0743798637e113d333f9e85124714d42be1ccae"
+      },
+      "mujoco.wasm": {
+        "purpose": "runtime",
+        "sha256": "2d380f1070a556c3003b4a7c7c10c98a5f61db4e91815de1075ec478e9487e76"
+      },
+      "package.json": {
+        "purpose": "metadata",
+        "sha256": "678ac9788eaf5802b64a3d03ff3294631008704729706e914c910bcb2467303f"
+      }
+    },
+    "version": "3.14.0"
+  },
   "playwright-core": {
     "license": "Apache-2.0 (bundled component notices included)",
     "notices": [

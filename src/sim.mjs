@@ -1,4 +1,4 @@
-import RAPIER from '@dimforge/rapier3d-compat/rapier.es.js';
+import {createWorld,ENGINES,engineName,checkEngine} from './engines/index.mjs';
 import {createHash} from 'node:crypto';
 import {validate,scenarioSchema,assignmentSchema,validateCall,schemasForVersion} from './schema.mjs';
 import {planPath} from './path.mjs';
@@ -9,7 +9,6 @@ const q=n=>Math.round(n*1e6)/1e6;
 const angle=x=>Math.atan2(Math.sin(x),Math.cos(x));
 export const canonical=value=>JSON.stringify(value,(_k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 export const hash=value=>createHash('sha256').update(typeof value==='string'||Buffer.isBuffer(value)?value:canonical(value)).digest('hex');
-let initialized;
 export function validateScenario(input,{formatVersion=2}={}){
  validate(schemasForVersion(formatVersion).scenario,input); const s=structuredClone(input); const ids=new Set(['coordinator','wall-n','wall-s','wall-e','wall-w']);
  for(const item of [...s.robots,...s.crates,...s.zones,...s.obstacles]){
@@ -29,36 +28,28 @@ export function validateAssignments(input,scenario,{formatVersion=2}={}){
  for(const x of a)if(!scenario.robots.some(r=>r.id===x.robotId)||!scenario.crates.some(c=>c.id===x.crateId))throw new Error('Assignment references unknown object');
  return a;
 }
-export async function createSim({scenario,seed=scenario.seed,assignments,maxTicks=36000,formatVersion=2,maxRunBytes=128*1024*1024,budgetPolicy='robot-shares-v1',retainLog=true,live=false,onRecord=()=>{},onAction=()=>{}}){
+export async function createSim({scenario,seed=scenario.seed,assignments,maxTicks=36000,formatVersion=2,maxRunBytes=128*1024*1024,budgetPolicy='robot-shares-v1',engine='rapier',retainLog=true,live=false,onRecord=()=>{},onAction=()=>{}}){
  if(maxRunBytes!==null&&(!Number.isSafeInteger(maxRunBytes)||maxRunBytes<65536||maxRunBytes>128*1024*1024))throw new Error('Invalid recording byte budget');
  if(!['legacy','robot-shares-v1'].includes(budgetPolicy))throw new Error('Unsupported recording budget policy');
  if(formatVersion===1)maxRunBytes=null;
  const scene=validateScenario(scenario,{formatVersion});scene.seed=seed;validate(schemasForVersion(formatVersion).scenario,scene);
  const work=validateAssignments(assignments,scene,{formatVersion});
  if(!Number.isSafeInteger(maxTicks)||maxTicks<1||maxTicks>36000)throw new Error('Invalid tick budget');
- initialized??=RAPIER.init(); await initialized;
- const world=new RAPIER.World({x:0,y:0,z:0});world.timestep=DT;
- const queue=new RAPIER.EventQueue(true), names=new Map(), robots=new Map(),crates=new Map();
+ checkEngine(engine);if(formatVersion===1&&engine!=='rapier')throw new Error('Version-1 recordings require the rapier engine');
+ const physics=await createWorld(engine,DT);
+ const robots=new Map(),crates=new Map();
  let tick=0,collisions=0,previous='0'.repeat(64),closed=false,stopReason=null,recordBytes=0,actionBytes=0,auditBytes=0,actionOrder=0,pendingBytes=0;const lines=[],actions=[],touching=new Set();
  let pendingEvents=[],tickEvents=[];const commandsAtTick=new Map(),robotBytes=new Map(),submittedAtTick=new Set(),chargedMotion=new Set();
  const sharedRobots=maxRunBytes!==null&&budgetPolicy==='robot-shares-v1';
  const robotByteLimit=maxRunBytes===null?Infinity:Math.floor(maxRunBytes/(2*scene.robots.length));
- function body(item,kind){
-  const moving=kind!=='obstacle';const desc=moving?RAPIER.RigidBodyDesc.dynamic():RAPIER.RigidBodyDesc.fixed();
-  desc.setTranslation(item.x,.3,item.y);
-  if(moving)desc.enabledTranslations(true,false,true).lockRotations().setCanSleep(false).setLinearDamping(0);
-  const b=world.createRigidBody(desc);
-  const shape=kind==='robot'?RAPIER.ColliderDesc.cylinder(.3,.33):RAPIER.ColliderDesc.cuboid((item.width||.6)/2,.3,(item.depth||.6)/2);
-  shape.setFriction(0).setRestitution(0).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);if(moving)shape.setMass(kind==='robot'?50:1);
-  const col=world.createCollider(shape,b);names.set(col.handle,item.id);return {body:b,collider:col};
- }
+ const body=(item,kind)=>({h:physics.add(item,kind)});
  for(const r of [...scene.robots].sort((a,b)=>compareIds(a.id,b.id)))robots.set(r.id,{...r,...body(r,'robot'),action:{type:'idle'},holding:null,assignment:work.find(a=>a.robotId===r.id),lastAction:{type:'idle'}});
  for(const c of [...scene.crates].sort((a,b)=>compareIds(a.id,b.id)))crates.set(c.id,{...c,...body(c,'crate'),heldBy:null});
  for(const o of scene.obstacles)body(o,'obstacle');
  for(const o of [{id:'wall-n',x:0,y:-scene.arena.depth/2,width:scene.arena.width+.2,depth:.2},{id:'wall-s',x:0,y:scene.arena.depth/2,width:scene.arena.width+.2,depth:.2},{id:'wall-w',x:-scene.arena.width/2,y:0,width:.2,depth:scene.arena.depth},{id:'wall-e',x:scene.arena.width/2,y:0,width:.2,depth:scene.arena.depth}])body(o,'obstacle');
- const header={kind:'header',version:formatVersion,engine:'rapier3d-compat@0.17.3',dt:DT,seed,scenario:scene,assignments:structuredClone(work),maxTicks,...(maxRunBytes!==null?{maxRunBytes}:{}),...(sharedRobots?{budgetPolicy}:{})};
+ const header={kind:'header',version:formatVersion,engine:physics.id,dt:DT,seed,scenario:scene,assignments:structuredClone(work),maxTicks,...(maxRunBytes!==null?{maxRunBytes}:{}),...(sharedRobots?{budgetPolicy}:{})};
  function emit(data){const row={...data,previous};row.hash=hash(row);const line=canonical(row)+'\n';const size=Buffer.byteLength(line);if(maxRunBytes!==null&&recordBytes+actionBytes+auditBytes+size>maxRunBytes)throw new Error('Recording reservation invariant failed');onRecord(line);recordBytes+=size;if(retainLog)lines.push(line);previous=row.hash;}
- function position(r){const p=r.body.translation();return {x:q(p.x),y:q(p.z)};}
+ function position(r){const p=physics.position(r.h);return {x:q(p.x),y:q(p.y)};}
  function delivered(c){const p=position(c),z=scene.zones.find(z=>z.id===c.zone);return !c.heldBy&&Math.abs(p.x-z.x)<=z.width/2-.3&&Math.abs(p.y-z.y)<=z.depth/2-.3;}
  function recordedStatus(){const done=[...crates.values()].filter(delivered).length;return {tick,time:q(tick*DT),delivered:done,total:crates.size,collisions,score:done*100-collisions*10,complete:done===crates.size,remainingTicks:maxTicks-tick,...(maxRunBytes!==null?{stopReason}:{})};}
  function guidance(){return {deliveryRule,deliveryAreas:deliveryAreas(scene.zones)};}
@@ -80,7 +71,7 @@ export async function createSim({scenario,seed=scenario.seed,assignments,maxTick
  function reserve(who,name,args,nextAction){
   if(stopReason)throw budgetError();if(maxRunBytes===null)return ()=>{};
   // Paths only shrink while stepping; contacts and numeric-width growth have bounded reserves.
-  const stateBound=Buffer.byteLength(canonical(snapshot()))+Buffer.byteLength(canonical([...robots.values()].map(r=>r.action)))+names.size*names.size*105+16384;
+  const stateBound=Buffer.byteLength(canonical(snapshot()))+Buffer.byteLength(canonical([...robots.values()].map(r=>r.action)))+physics.count()*physics.count()*105+16384;
   const n=name==='sim.step'?args.n:1,entryBytes=Buffer.byteLength(canonical(actionEntry(who,name,args)));
   // Half the cap is divided equally among robots; the rest remains available for
   // world frames and launcher control. The first submission each tick is control
@@ -115,15 +106,13 @@ export async function createSim({scenario,seed=scenario.seed,assignments,maxTick
     if(a.type==='drive'&&a.remaining>0){v=a.v;w=a.w;a.remaining--;}
     else if(a.type==='goto'&&a.remaining>0){
      a.remaining--;while(a.path.length&&Math.hypot(a.path[0].x-p.x,a.path[0].y-p.y)<.035)a.path.shift();
-     if(a.path.length){const t=a.path[0],d=Math.hypot(t.x-p.x,t.y-p.y),error=angle(Math.atan2(t.y-p.y,t.x-p.x)-r.heading);w=Math.max(-2.5,Math.min(2.5,error/DT));if(Math.abs(error)<.2)v=Math.min(1.5,d/DT);}
+     if(a.path.length){const t=a.path[0],d=Math.hypot(t.x-p.x,t.y-p.y),error=angle(Math.atan2(t.y-p.y,t.x-p.x)-r.heading);w=Math.max(-2.5,Math.min(2.5,error/DT));if(Math.abs(error)<.2)v=Math.min(1.5,d/DT,physics.brakingSpeed?physics.brakingSpeed(d):Infinity);}
     }
     r.lastAction=structuredClone(a);
     if((a.type==='drive'&&a.remaining===0)||(a.type==='goto'&&(a.path.length===0||a.remaining===0)))r.action={type:'idle'};
-    r.heading=angle(r.heading+w*DT);r.body.setRotation({x:0,y:-Math.sin(r.heading/2),z:0,w:Math.cos(r.heading/2)},true);
-    r.body.setLinvel({x:Math.cos(r.heading)*v,y:0,z:Math.sin(r.heading)*v},true);
+    r.heading=angle(r.heading+w*DT);physics.drive(r.h,r.heading,v);
    }
-   world.step(queue);
-   queue.drainCollisionEvents((a,b,started)=>{const ids=[names.get(a),names.get(b)].sort(),key=ids.join(':');const own=ids.some(id=>robots.get(id)?.holding===ids.find(x=>x!==id));if(own){touching.delete(key);return;}
+   physics.step((a,b,started)=>{const ids=[a,b].sort(),key=ids.join(':');const own=ids.some(id=>robots.get(id)?.holding===ids.find(x=>x!==id));if(own){touching.delete(key);return;}
     if(started){touching.add(key);if(ids.some(id=>robots.has(id)||crates.has(id)))collisions++;}else touching.delete(key);
    });
    tick++;
@@ -168,31 +157,27 @@ export async function createSim({scenario,seed=scenario.seed,assignments,maxTick
    const c=crates.get(args.crateId);if(!c||r.assignment.crateId!==args.crateId||r.holding||c.heldBy||Math.hypot(position(r).x-position(c).x,position(r).y-position(c).y)>.85)throw new Error('Crate unavailable or out of reach');
    const cp=position(c),p=position(r);if(Math.abs(angle(Math.atan2(cp.y-p.y,cp.x-p.x)-r.heading))>.4)throw new Error('Crate must be in front');
    r.holding=c.id;c.heldBy=r.id;r.action={type:'idle'};
-   c.body.setTranslation({x:p.x+Math.cos(r.heading)*.75,y:.3,z:p.y+Math.sin(r.heading)*.75},true);
-   c.body.setRotation(r.body.rotation(),true);
-   const frame={x:0,y:0,z:0,w:1};
-   r.joint=world.createImpulseJoint(RAPIER.JointData.fixed({x:.75,y:0,z:0},frame,{x:0,y:0,z:0},frame),r.body,c.body,true);
-   r.joint.setContactsEnabled(false);touching.delete([r.id,c.id].sort().join(':'));
+   physics.attach(r.h,c.h,r.heading,p);touching.delete([r.id,c.id].sort().join(':'));
   }
   if(name==='robot.release'){
-   if(!r.holding)throw new Error('No held crate');const c=crates.get(r.holding);world.removeImpulseJoint(r.joint,true);r.joint=null;c.heldBy=null;c.body.setLinvel({x:0,y:0,z:0},true);r.holding=null;
+   if(!r.holding)throw new Error('No held crate');const c=crates.get(r.holding);physics.detach(r.h,c.h);c.heldBy=null;r.holding=null;
   }
   r.caller={role:who.role,agentId:who.agentId};
   spend();commandsAtTick.set(r.id,(commandsAtTick.get(r.id)||0)+1);appendAction(who,name,args);return {accepted:true,tick,robotId:r.id};
  }
  emit(header);emit(snapshot());
- return {header,invoke,stop,accountAuditBytes,retainedLogCounts:()=>({records:lines.length,actions:actions.length}),step:n=>invoke({role:'coordinator',agentId:'coordinator'},'sim.step',{n}),status,snapshot,trajectory:()=>lines.join(''),actions:()=>structuredClone(actions),close(){if(!closed){closed=true;queue.free();world.free();}}};
+ return {header,invoke,stop,accountAuditBytes,retainedLogCounts:()=>({records:lines.length,actions:actions.length}),step:n=>invoke({role:'coordinator',agentId:'coordinator'},'sim.step',{n}),status,snapshot,workRecord:()=>structuredClone(work),trajectory:()=>lines.join(''),actions:()=>structuredClone(actions),close(){if(!closed){closed=true;physics.free();}}};
 }
 export function verifyTrajectory(text){
  if(typeof text!=='string'||!text.endsWith('\n')||Buffer.byteLength(text)>256*1024*1024)throw new Error('Invalid trajectory framing');
  const records=text.trimEnd().split('\n').map(line=>JSON.parse(line));let previous='0'.repeat(64),tick=-1;
  for(let i=0;i<records.length;i++){const row=records[i],{hash:claimed,...payload}=row;if(row.previous!==previous||hash(payload)!==claimed)throw new Error('Trajectory hash mismatch');previous=claimed;
-  if(i===0){if(row.kind!=='header'||![1,2].includes(row.version)||row.dt!==DT||row.engine!=='rapier3d-compat@0.17.3')throw new Error('Invalid trajectory header');validateScenario(row.scenario,{formatVersion:row.version});validateAssignments(row.assignments,row.scenario,{formatVersion:row.version});}
+  if(i===0){if(row.kind!=='header'||![1,2].includes(row.version)||row.dt!==DT||!engineName(row.engine)||(row.version===1&&row.engine!==ENGINES.rapier))throw new Error('Invalid trajectory header');validateScenario(row.scenario,{formatVersion:row.version});validateAssignments(row.assignments,row.scenario,{formatVersion:row.version});}
   else if(row.kind!=='tick'||row.tick!==++tick||row.time!==q(tick*DT))throw new Error('Trajectory tick discontinuity');
  }
  if(tick<0)throw new Error('Missing initial state');return {ticks:tick,records,finalHash:previous};
 }
 export async function replayActions(header,actions){
- const s=await createSim({scenario:header.scenario,seed:header.seed,assignments:header.assignments,maxTicks:header.maxTicks,formatVersion:header.version,maxRunBytes:header.maxRunBytes??null,budgetPolicy:header.budgetPolicy??'legacy',live:actions.some(a=>a.name==='robot.submit')});
+ const s=await createSim({scenario:header.scenario,seed:header.seed,assignments:header.assignments,maxTicks:header.maxTicks,formatVersion:header.version,maxRunBytes:header.maxRunBytes??null,budgetPolicy:header.budgetPolicy??'legacy',engine:checkEngine(engineName(header.engine)),live:actions.some(a=>a.name==='robot.submit')});
  try{for(let i=0;i<actions.length;i++){const a=actions[i];if(a.order!==i||a.tick!==s.status().tick)throw new Error('Action order mismatch');if(header.version>=2&&(canonical(a.caller)!==canonical({role:a.identity.role,agentId:a.identity.agentId})||a.robotId!==(a.args.robotId||null)||canonical(a.robotIds)!==canonical(a.args.robotId?[a.args.robotId]:header.scenario.robots.map(r=>r.id).sort(compareIds))))throw new Error('Action caller or robot attribution mismatch');if(a.name==='recording.stop'){if(a.caller?.role!=='launcher'||a.caller.agentId!=='sim-launcher'||canonical(a.args)!==canonical({reason:'byte-budget'}))throw new Error('Invalid recording stop');s.stop();}else s.invoke(a.identity,a.name,a.args);}return s;}catch(e){s.close();throw e;}
 }

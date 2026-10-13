@@ -1,0 +1,131 @@
+import type { Register } from 'claude-code'
+import { views, actions, usage, commandInput, parsePage, detailLines, localHelp, readerCommand } from './view.mjs'
+
+const PANE='toolsenabled-sim-view'
+let serial=0,opened=false,loading=false,collision=false
+let selectedView='status',selectedRun='',stream='all',error='',hint='',selectedCheck=''
+let page:any=null,detail:any=null,detailOffset=0
+let history:any[]=[]
+let currentQuery:any={}
+function clear(){serial++;opened=false;loading=false;page=null;detail=null;error='';hint='';history=[];currentQuery={};detailOffset=0}
+function redraw($:any){$.ui.invalidate('ui.render')}
+async function close($:any){clear();await $.ui.close({id:PANE})}
+async function load($:any,connection:string,root:string,query:any={}){
+ const mine=++serial;loading=true;error='';hint='';page=null;detail=null;detailOffset=0;currentQuery=query;redraw($)
+ try{
+  if(selectedView==='help'){page=parsePage(localHelp(query),'help');return}
+  const argv=[...readerCommand($.plugin.root,selectedView,connection,root,await $.env.get('PATH')),
+   ...(selectedView==='events'?['--stream',stream]:[]),
+   ...(['events','replay'].includes(selectedView)&&selectedRun?['--run',selectedRun]:[]),
+   ...(selectedView==='scenarios'&&selectedCheck?['--check',selectedCheck]:[]),
+   ...Object.entries(query).flatMap(([k,v])=>['--'+k,String(v)])]
+  const result=await $.process.run(argv,{cwd:$.plugin.root,timeoutMs:5000})
+  if(mine!==serial||!opened)return
+  if(result.exitCode!==0||result.isStdoutTruncated||result.isStderrTruncated){
+   const stderr=String(result.stderr||'')
+   error=/Run changed/.test(stderr)?'Run changed. Reload to read the current page.':/Update the Sim hub/.test(stderr)?'Update the Sim hub and plugin together for views.':'Sim view unavailable. Check the running hub and configured private connection.'
+   return
+  }
+  if(typeof result.stdout!=='string'||result.stdout.length>65536)throw new Error('Invalid view')
+  page=parsePage(JSON.parse(result.stdout),selectedView)
+ }catch{if(mine===serial&&opened)error='Sim view unavailable. Reload to try again.'}
+ finally{if(mine===serial&&opened){loading=false;redraw($)}}
+}
+function notice($:any,text:string){hint=text;redraw($)}
+async function paneKey($:any,key:string,connection:string,root:string){
+ if(!opened)return
+ if(key==='q'){await close($);return}
+ if(loading){notice($,'The view is loading. Press q or Esc to close.');return}
+ if(key==='p'||key==='n'){
+  if(detail){const lines=detailLines(detail);if(key==='p'&&detailOffset>0){detailOffset=Math.max(0,detailOffset-12);hint='';redraw($)}else if(key==='n'&&detailOffset+12<lines.length){detailOffset+=12;hint='';redraw($)}else notice($,key==='p'?'No previous detail page.':'No next detail page.');return}
+  if(key==='p'&&history.length){await load($,connection,root,history.pop());return}
+  if(key==='n'&&page&&(page.nextOffset!==null||page.nextCursor!==null)){const current=page;history.push(currentQuery);await load($,connection,root,{...(current.nextOffset!==null?{offset:current.nextOffset}:{cursor:current.nextCursor}),revision:current.revision});return}
+  notice($,key==='p'?'No previous page.':'No next page.');return
+ }
+ if(key==='r'){if(selectedView==='help'||detail){notice($,selectedView==='help'?'Help is static.':'Return to the list to reload.');return}history=[];await load($,connection,root);return}
+ if(key==='h'){if(selectedView==='help'&&!detail){notice($,'Help is already open.');return}selectedView='help';history=[];await load($,connection,root);return}
+ if(key==='b'){if(detail){detail=null;detailOffset=0;hint='';redraw($)}else notice($,'Select a row to open its detail.');return}
+ if(key==='e'){if(detail&&selectedView==='runs'&&/^run-\d{4,10}$/.test(detail.id)){selectedRun=detail.id;selectedView='events';stream='all';history=[];await load($,connection,root)}else notice($,'Open a retained run detail to see its events.');return}
+ if(key==='a'){if(selectedView==='events'&&!detail){stream=stream==='all'?'actions':stream==='actions'?'rounds':'all';history=[];await load($,connection,root)}else notice($,'Event stream selection is available in the events list.');return}
+ if(/^[0-9]$/.test(key)){const index=(Number(key)+9)%10;if(!detail&&page?.rows[index]){detail=page.rows[index];detailOffset=0;hint='';redraw($)}else notice($,`Row ${key} is not available in this view.`)}
+}
+export const register: Register = (on,options) => {
+ const connection=String(options.connection_file||''),root=String(options.run_root||'')
+ for(const verb of actions)on('command.run',{command:`toolsenabled-sim:${verb}`},async($,e,next)=>{
+  const command=commandInput(verb+(e.args?' '+e.args:''))
+  if(!command||command.kind!=='action')return {text:usage}
+  if(!['composer','bridge'].includes(e.origin.kind))return {text:'Type the Sim action yourself to request it.'}
+  const actionEpoch=++serial
+  let plan:any
+  try{
+   const result=await $.process.run(readerCommand($.plugin.root,'action',connection,root,await $.env.get('PATH')),{cwd:$.plugin.root,stdin:JSON.stringify({verb,args:command.args}),timeoutMs:5000})
+   if(result.exitCode!==0||result.isStdoutTruncated||result.isStderrTruncated||result.stdout.length>65536)throw new Error('preflight')
+   if(actionEpoch!==serial)return {text:'Sim action cancelled.'}
+   plan=JSON.parse(result.stdout)
+   if(plan.schema!=='ai.toolsenabled/sim-action/v1'||typeof plan.allowed!=='boolean')throw new Error('preflight')
+  }catch{plan={allowed:false,reason:'Sim action unavailable. Check this session’s private connection.'}}
+  if(!plan.allowed){
+   clear();opened=true;selectedView='status';error=typeof plan.reason==='string'?plan.reason.replace(/[\p{Cc}\p{Cf}\p{Cs}]/gu,'?').slice(0,240):'Action refused.'
+   await $.ui.open({id:PANE,title:'Sim',focus:true,closeOnEscape:true,holdToasts:true,rows:22,columns:90});redraw($)
+   return {text:'Sim pane opened.'}
+  }
+  if(!plan.request||plan.request.verb!==verb)return {text:'Sim action preflight returned invalid data.'}
+  // Native Markdown supplies the normal model turn and existing tool approvals.
+  return next({...e,args:JSON.stringify(plan.request)})
+ })
+ on('session.start',async($,e,next)=>{
+  clear();collision=(await $.command.list()).some(c=>c.name==='sim'&&!(c.source==='plugin'&&c.plugin==='toolsenabled-sim'))
+  if(!collision)await $.command.register({name:'sim',description:'Read Sim state, robots, history and help in a local pane',argumentHint:'[status|help|robots|map|runs|events|scenarios|replay|connection]'})
+  return next(e)
+ })
+ on('session.end',async($,e,next)=>{clear();return next(e)})
+ on('ui.close',{id:PANE},async($,e,next)=>{clear();return next(e)})
+ on('command.run',{command:'sim'},async($,e,next)=>{
+  if(collision)return next(e)
+  const command=commandInput(e.args);if(!command)return {text:usage}
+  if(command.kind==='action'){
+   return {text:`Use /toolsenabled-sim:${command.verb}${command.args.length?' '+command.args.join(' '):''} to request this action.`}
+  }
+  clear();opened=true;selectedView=command.verb;selectedRun=command.run||'';selectedCheck=command.check||'';stream='all'
+  await $.ui.open({id:PANE,title:'Sim',focus:true,closeOnEscape:true,holdToasts:true,rows:22,columns:90})
+  await load($,connection,root)
+  // Runtime data stays in the pane and never becomes a model context message.
+  return {text:'Sim pane opened.'}
+ })
+ on('ui.render',{component:'Pane',requestId:PANE},async($,e)=>{
+  const {Box,Text,Button}=$.ui.resolve(e),current=page,chosen=detail
+  if(!opened)return <Text>Sim pane closed.</Text>
+  const lines=chosen?detailLines(chosen):[],ready=!loading
+  const previous=ready&&(chosen?detailOffset>0:history.length>0)
+  const next=ready&&(chosen?detailOffset+12<lines.length:!!current&&(current.nextOffset!==null||current.nextCursor!==null))
+  const reload=ready&&!chosen&&selectedView!=='help',help=ready&&(!!chosen||selectedView!=='help')
+  const back=ready&&!!chosen,events=ready&&!!chosen&&selectedView==='runs'&&/^run-\d{4,10}$/.test(chosen.id),cycle=ready&&!chosen&&selectedView==='events'
+  const keys=[...(previous?['p previous']:[]),...(next?['n next']:[]),...(reload?['r reload']:[]),...(help?['h help']:[]),...(back?['b back']:[]),...(events?['e events']:[]),...(cycle?['a stream']:[]),...(!chosen&&ready&&current?.rows.length?[`rows ${current.rows.map((_:any,i:number)=>String((i+1)%10)).join(',')}`]:[]),'q / Esc close']
+  return <Box flexDirection="column">
+   <Text bold>Sim · {selectedView}{chosen?' · detail':selectedView==='events'?` · ${stream}`:''}</Text>
+   {chosen?lines.slice(detailOffset,detailOffset+12).map((line:string)=><Text>{line}</Text>):<Box flexDirection="column">
+    {current?<Text dimColor>Revision {current.revision.slice(0,12)}</Text>:null}
+    {current?.summary.map((line:string)=><Text dimColor>{line}</Text>)}
+    {loading?<Text dimColor>Loading…</Text>:error?<Text>{error}</Text>:null}
+    {current&&!current.rows.length?<Text>No visible records on this page.</Text>:null}
+    {current?.rows.map((r:any,i:number)=><Button key={`sim-row-${i}`} onPress={()=>{if(page!==current||loading)return;detail=r;detailOffset=0;hint='';redraw($)}}>{`${(i+1)%10}: ${r.title.slice(0,61)}`}</Button>)}
+    {current?.total!==null&&current?.total!==undefined?<Text dimColor>{current.offset+1}–{current.offset+current.rows.length} of {current.total}</Text>:null}
+   </Box>}
+   {hint?<Text dimColor>{hint}</Text>:null}
+   <Box>
+    <Button key="sim-prev" hotkey="p" dimColor={!previous} onPress={async()=>{await paneKey($,'p',connection,root)}}>Previous</Button>
+    <Button key="sim-next" hotkey="n" dimColor={!next} onPress={async()=>{await paneKey($,'n',connection,root)}}>Next</Button>
+    <Button key="sim-reload" hotkey="r" dimColor={!reload} onPress={async()=>{await paneKey($,'r',connection,root)}}>Reload</Button>
+    <Button key="sim-help" hotkey="h" dimColor={!help} onPress={async()=>{await paneKey($,'h',connection,root)}}>Help</Button>
+    <Button key="sim-back" hotkey="b" dimColor={!back} onPress={async()=>{await paneKey($,'b',connection,root)}}>Back</Button>
+    <Button key="sim-run-events" hotkey="e" dimColor={!events} onPress={async()=>{await paneKey($,'e',connection,root)}}>Events</Button>
+    <Button key="sim-stream" hotkey="a" dimColor={!cycle} onPress={async()=>{await paneKey($,'a',connection,root)}}>Stream</Button>
+    <Button key="sim-close" hotkey="q" onPress={async()=>{await close($)}}>Close</Button>
+   </Box>
+   <Box><Text dimColor>Rows </Text>{Array.from({length:10},(_:any,i:number)=>String((i+1)%10)).map((key:string)=><Button key={`sim-digit-${key}`} hotkey={key} dimColor={!ready||!!chosen||!current?.rows[(Number(key)+9)%10]} onPress={async()=>{await paneKey($,key,connection,root)}}>{key}</Button>)}</Box>
+   {!chosen&&ready?<Box>{views.map((v:string)=><Button key={`sim-view-${v}`} onPress={async()=>{selectedView=v;selectedRun='';selectedCheck='';stream='all';history=[];await load($,connection,root)}}>{v}</Button>)}</Box>:null}
+   <Text dimColor>Keys: {keys.join(' · ')}</Text>
+   <Text dimColor>Read-only · Dim controls explain why they are unavailable.</Text>
+  </Box>
+ })
+}

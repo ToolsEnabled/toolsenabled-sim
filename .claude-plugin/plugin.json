@@ -1,6 +1,6 @@
 {
   "name": "toolsenabled-sim",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "displayName": "ToolsEnabled Sim",
   "description": "Deterministic offline warehouse robot simulation with shared MCP control, delivery guidance and replay.",
   "author": {
@@ -23,6 +23,12 @@
       "title": "Assigned robot connection file",
       "description": "Absolute path to the private connection file created by the running Sim hub for this agent. Keep the hub outside the plugin cache.",
       "required": true
+    },
+    "run_root": {
+      "type": "directory",
+      "title": "Retained run root (optional)",
+      "description": "Absolute path to the private hub root on this OS account, for read-only history after shutdown. Never a connection-file directory for another agent.",
+      "required": false
     }
   }
 }

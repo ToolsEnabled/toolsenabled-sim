@@ -81,7 +81,7 @@ test('I-5: default launcher output contains directly executable POSIX registrati
  }finally{child?.kill('SIGKILL');await rm(root,{recursive:true,force:true});}
 });
 test('I-6: package, lock, plugin and MCP advertise the release version',async()=>{
- for(const path of ['package.json','package-lock.json','.codex-plugin/plugin.json']){const data=JSON.parse(await readFile(new URL('../'+path,import.meta.url),'utf8'));assert.equal(data.version,'0.1.2');if(data.packages)assert.equal(data.packages[''].version,'0.1.2');}
- const changelog=await readFile(new URL('../CHANGELOG.md',import.meta.url),'utf8');assert.deepEqual([...changelog.matchAll(/^## (\d+\.\d+\.\d+)/gm)].map(m=>m[1]),['0.1.2','0.1.1','0.1.0']);assert.doesNotMatch(changelog,/## Unreleased/);
- await fixture(async hub=>{const c=new McpClient(hub.connections.amber);try{assert.equal((await c.initialize()).serverInfo.version,'0.1.2');}finally{await c.close();}});
+ for(const path of ['package.json','package-lock.json','.codex-plugin/plugin.json']){const data=JSON.parse(await readFile(new URL('../'+path,import.meta.url),'utf8'));assert.equal(data.version,'0.1.4');if(data.packages)assert.equal(data.packages[''].version,'0.1.4');}
+ const changelog=await readFile(new URL('../CHANGELOG.md',import.meta.url),'utf8');assert.deepEqual([...changelog.matchAll(/^## (\d+\.\d+\.\d+)/gm)].map(m=>m[1]),['0.1.4','0.1.3','0.1.2','0.1.1','0.1.0']);assert.doesNotMatch(changelog,/## Unreleased/);
+ await fixture(async hub=>{const c=new McpClient(hub.connections.amber);try{assert.equal((await c.initialize()).serverInfo.version,'0.1.4');}finally{await c.close();}});
 });
