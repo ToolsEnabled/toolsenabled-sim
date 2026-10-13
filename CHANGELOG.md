@@ -6,7 +6,7 @@
 - Report the caller's own role, agent and robot as `whoami` in `sim.status` (never the connection capability); the action commands read the robot ID from it.
 - Refuse a `/toolsenabled-sim:scenario` path typed with repeated spaces, which would name a different file than the one checked; the model now reads the checked scenario file with the normal Read approval.
 - Give every MCP tool a plain-language title and its hints; the nine tools that change the shared world are now marked destructive.
-- Add the directory listing icon `.claude-plugin/icon.png`. The release ZIP leaves it out, and the packaging checks exempt exactly that one image.
+- Add the plugin directory's listing icon to the repository. The release ZIP leaves it out, and the packaging checks exempt exactly that one image.
 - Add the README section "What this plugin runs, sends and reads". Point the plugin's homepage to https://toolsenabled.ai/sim/, add its documentation, privacy (https://toolsenabled.ai/privacy/) and support (https://toolsenabled.ai/support/) links, and replace the old privacy link.
 - Preserve the pinned runtime dependencies and recorded physics bytes on both engines; demo receipts gain `status.whoami`.
 
