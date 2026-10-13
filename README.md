@@ -14,11 +14,11 @@ Use Node.js 22 or newer. The release ZIP needs no install: it already includes i
 npm ci --ignore-scripts --no-audit --no-fund
 ```
 
-For the release ZIP, download both files from [v0.1.9](https://github.com/ToolsEnabled/toolsenabled-sim/releases/tag/v0.1.9), then verify before extracting:
+For the release ZIP, download both files from [v0.1.10](https://github.com/ToolsEnabled/toolsenabled-sim/releases/tag/v0.1.10), then verify before extracting:
 
 ```sh
-sha256sum -c toolsenabled-sim-0.1.9.zip.sha256
-unzip toolsenabled-sim-0.1.9.zip
+sha256sum -c toolsenabled-sim-0.1.10.zip.sha256
+unzip toolsenabled-sim-0.1.10.zip
 cd sim
 ```
 
@@ -70,7 +70,7 @@ codex plugin marketplace add ToolsEnabled/toolsenabled-sim
 Claude Code stores `connection_file` per user (in `settings.json` of its configuration directory), not per project, so installing for a second robot rebinds the first. To run several robots on one OS account, give each robot agent its own `CLAUDE_CONFIG_DIR` and use it for every `claude` command of that agent; see [several robots on one OS account](docs/CLAUDE-INSTALL.md#several-robots-on-one-os-account). The install prints `1 userConfig option not yet set`: that is the optional `run_root`, and the message is expected.
 
 For an offline Claude Code install from the verified ZIP, add its extracted `sim/` directory as a local marketplace and use the same plugin name. For a Git-backed install, Claude Code itself runs `npm ci --ignore-scripts` in the installed plugin directory; run `npm ci --ignore-scripts --no-audit --no-fund` there yourself only if its `node_modules` is missing. The release ZIP already includes the dependencies. Set Codex's absolute `SIM_CONNECTION` in the host environment before starting it, then install Sim from the toolsenabled-sim marketplace in Codex's /plugins browser.
-See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.9 release, and native installation still needs qualification. POSIX ownership checks are required; native Windows is not supported in this release.
+See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.10 release, and native installation still needs qualification. POSIX ownership checks are required; native Windows is not supported in this release.
 
 Sim has no dashboard or human-control link. The human starts the hub and finds connection-file paths in its launch terminal. Capture and replay are explicit human-run local commands. Agent file/shell tools running as the same user can read host logs and private connection files; project scope and skill guidance do not provide OS isolation.
 

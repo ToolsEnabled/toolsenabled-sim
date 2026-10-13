@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.10 — 2026-10-13
+
+Codex self-distribution fixes; the server, tools, hooks and physics are unchanged:
+
+- Codex no longer tries to read `hooks/hooks.json`, the Claude Code `/sim` mod, as a Codex hook file, which it cannot parse. `.codex-plugin/plugin.json` declares `"hooks": {}`; an explicit `hooks` value replaces Codex's default hooks-file discovery, and an empty one adds no hooks. Claude Code is unaffected.
+- The Codex listing in `.codex-plugin/plugin.json` gains `interface.websiteURL` (https://toolsenabled.ai/sim/), `supportURL` (https://toolsenabled.ai/support/) and `privacyPolicyURL` (https://toolsenabled.ai/privacy/). `developerName` is "ToolsEnabled, Inc.", as in `author`. `shortDescription` is "Coordinate warehouse robots", within the 30-character limit. `brandColor` is #2fb8a4 (2.47:1 against white; the old #4ddbc6 was 1.71:1, below the 2:1 minimum), and #4ddbc6 moves to `brandColorDark`.
+- README and docs/CLAUDE-INSTALL.md say to install Sim from the toolsenabled-sim marketplace in Codex's /plugins browser, instead of "the Plugins Directory", which is OpenAI's name for its public directory. Sim is not listed there.
+- `test/claude-package.test.mjs` now also pins the empty `hooks` object and the three listing links; the suite runs the same tests as 0.1.9.
+
 ## 0.1.9 — 2026-10-13
 
 - README: a "Try it" section gives the shortest path from nothing to a working result: start a hub, install the plugin with the coordinator's connection file, then three prompts (`/sim status`, a delivery for amber, `/toolsenabled-sim:step 60`), each with the result it shows. No account or API key is needed.
