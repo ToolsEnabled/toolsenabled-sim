@@ -28,20 +28,25 @@
   },
   "interface": {
     "displayName": "ToolsEnabled Sim",
-    "shortDescription": "Coordinate robots in a replayable warehouse.",
+    "shortDescription": "Coordinate warehouse robots",
     "longDescription": "Control an owned robot through MCP, coordinate a shared fixed-step world, and replay deterministic camera views offline.",
-    "developerName": "ToolsEnabled",
+    "developerName": "ToolsEnabled, Inc.",
     "category": "Productivity",
     "capabilities": [
       "Interactive",
       "Write"
     ],
+    "websiteURL": "https://toolsenabled.ai/sim/",
+    "supportURL": "https://toolsenabled.ai/support/",
+    "privacyPolicyURL": "https://toolsenabled.ai/privacy/",
     "defaultPrompt": [
       "Observe my robot and coordinate a warehouse delivery."
     ],
-    "brandColor": "#4ddbc6"
+    "brandColor": "#2fb8a4",
+    "brandColorDark": "#4ddbc6"
   },
   "homepage": "https://toolsenabled.ai/sim/",
   "repository": "https://github.com/ToolsEnabled/toolsenabled-sim",
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "hooks": {}
 }

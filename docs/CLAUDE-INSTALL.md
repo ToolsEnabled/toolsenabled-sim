@@ -75,7 +75,7 @@ For connection recovery, stop the affected client normally, check its absolute f
 
 ## Codex
 
-Add the repository marketplace with `codex plugin marketplace add ToolsEnabled/toolsenabled-sim`, then install ToolsEnabled Sim from the Plugins Directory. The verified ZIP can also be registered with `codex plugin marketplace add /absolute/extracted/sim`. Git-backed installs need the dependency install above; the ZIP includes them.
+Add the repository marketplace with `codex plugin marketplace add ToolsEnabled/toolsenabled-sim`, then install ToolsEnabled Sim from the toolsenabled-sim marketplace in Codex's /plugins browser. The verified ZIP can also be registered with `codex plugin marketplace add /absolute/extracted/sim`. Git-backed installs need the dependency install above; the ZIP includes them.
 
 The `.codex-plugin/plugin.json` uses an inline server with `args:["./src/mcp.mjs"]` and `cwd:"./"`, plus `env_vars:["SIM_CONNECTION"]` to forward the host’s connection path into the MCP subprocess. The tested Codex loader resolves that cwd to the installed plugin root. Set `SIM_CONNECTION` to the absolute private file in the host environment before launching Codex, or use the existing print-only `tools/mcp-config.mjs --client codex --connection /absolute/file` helper for direct registration. Codex does not consume Claude's `user_config`. The inline server uses the same name as the root Claude `.mcp.json` so it overrides that configuration. Root substitution strings are not supported in the tested legacy Codex MCP argv.
 

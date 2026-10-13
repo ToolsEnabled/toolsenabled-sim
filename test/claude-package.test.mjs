@@ -16,6 +16,9 @@ test('Claude and Desktop use one absolute connection-file option in env; Codex u
  assert.deepEqual(claude.mcpServers.toolsenabled_sim,{command:'node',args:['${CLAUDE_PLUGIN_ROOT}/src/mcp.mjs'],env:{SIM_CONNECTION:'${user_config.connection_file}'}});
  assert.deepEqual(desktop.server.mcp_config,{command:'node',args:['${__dirname}/src/mcp.mjs'],env:{SIM_CONNECTION:'${user_config.connection_file}'}});
  assert.deepEqual(codex.mcpServers,{toolsenabled_sim:{command:'node',args:['./src/mcp.mjs'],cwd:'./',env_vars:['SIM_CONNECTION']}});
+ // Codex reads hooks/hooks.json (the Claude Code /sim mod) unless its manifest declares hooks; the empty object turns that off.
+ assert.deepEqual(codex.hooks,{});assert.equal(codex.interface.developerName,'ToolsEnabled, Inc.');assert.ok(codex.interface.shortDescription.length<=30);
+ assert.deepEqual([codex.interface.websiteURL,codex.interface.supportURL,codex.interface.privacyPolicyURL,codex.interface.termsOfServiceURL],['https://toolsenabled.ai/sim/','https://toolsenabled.ai/support/','https://toolsenabled.ai/privacy/',undefined]);
  assert.ok(!(await readdir(root)).includes('server.json'));
 });
 test('SIM_CONNECTION rejects relative, tilde, empty and drive-relative paths before reading; absolute paths with spaces work',async()=>{
