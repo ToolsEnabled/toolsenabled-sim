@@ -12,6 +12,9 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 
+def listing_image_path(name):
+    return name.startswith('.claude-plugin/') and name.count('/') == 1 and name.endswith('.png')
+
 def members(root):
     files = json.loads((root / 'tools/package-files.json').read_text())
     if files != sorted(set(files)) or 'server.json' in files:
@@ -32,7 +35,12 @@ def build(cli, output):
     if subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).strip():
         raise ValueError('Commit source before packaging')
     tracked = sorted(subprocess.check_output(['git','ls-files','-z'],cwd=ROOT,text=True).strip('\0').split('\0'))
-    if tracked != json.loads((ROOT/'tools/package-files.json').read_text()):
+    # The one image in .claude-plugin is the plugin directory's listing icon. The directory reads it from the repository and
+    # the archives do not need it; listing it in tools/package-files.json makes the directory hold the plugin for an image
+    # that code could run. So exactly that image, matched by extension, is exempt here, and a second one is refused.
+    listing_image = [name for name in tracked if listing_image_path(name)]
+    if len(listing_image) > 1: raise ValueError('Only one listing image may sit in .claude-plugin')
+    if [name for name in tracked if name not in listing_image] != json.loads((ROOT/'tools/package-files.json').read_text()):
         raise ValueError('Source allowlist differs from tracked files')
     cli = cli.resolve(strict=True)
     version = subprocess.check_output(['node', str(cli), '--version'], text=True).strip()

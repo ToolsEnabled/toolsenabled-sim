@@ -12,7 +12,13 @@ const output=process.argv[2];if(!output)throw new Error('Usage: node tools/packa
 const tracked=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
 if(execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim())throw new Error('Commit source before packaging');
 const sourceFiles=JSON.parse(await readFile(join(root,'tools/package-files.json'),'utf8'));
-if(JSON.stringify([...tracked].sort())!==JSON.stringify(sourceFiles)||sourceFiles.includes('server.json'))throw new Error('Source allowlist differs from tracked files or includes Registry metadata');
+// The one image in .claude-plugin is the plugin directory's listing icon. The directory reads it from the repository and
+// the archives do not need it; listing it in tools/package-files.json makes the directory hold the plugin for an image that
+// code could run. So exactly that image, matched by extension, is exempt from this inventory, and a second one is refused.
+const listingImage=tracked.filter(file=>/^\.claude-plugin\/[^/]+\.png$/.test(file));
+if(listingImage.length>1)throw new Error('Only one listing image may sit in .claude-plugin');
+const shipped=tracked.filter(file=>!listingImage.includes(file));
+if(JSON.stringify([...shipped].sort())!==JSON.stringify(sourceFiles)||sourceFiles.includes('server.json'))throw new Error('Source allowlist differs from tracked files or includes Registry metadata');
 const deps=dependencyInputs(root);
 const files=[...sourceFiles,...deps.files];
 files.sort();

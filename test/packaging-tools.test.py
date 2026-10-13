@@ -226,17 +226,26 @@ class PackagingTests(unittest.TestCase):
             result=json.loads(subprocess.check_output(['node',str(ROOT/'tools/package-inputs.mjs'),str(root)]))
             self.assertEqual(result['versions']['three'],'0.180.0')
 
-    def test_mcpb_refuses_dirty_source_before_packing(self):
+    def test_mcpb_refuses_dirty_source_and_more_than_one_listing_image_before_packing(self):
         pack=module('package-mcpb')
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);(root/'tools').mkdir();(root/'tracked').write_text('clean')
             (root/'tools/package-files.json').write_text(json.dumps(['tools/package-files.json','tracked']))
+            def commit():
+                subprocess.run(['git','add','.'],cwd=root,check=True)
+                subprocess.run(['git','-c','user.name=Test','-c','user.email=test@example.invalid','commit','-qm','fixture'],cwd=root,check=True)
             subprocess.run(['git','init','-q',str(root)],check=True)
-            subprocess.run(['git','add','.'],cwd=root,check=True)
-            subprocess.run(['git','-c','user.name=Test','-c','user.email=test@example.invalid','commit','-qm','fixture'],cwd=root,check=True)
+            commit()
             (root/'tracked').write_text('dirty')
             with patch.object(pack,'ROOT',root):
                 with self.assertRaisesRegex(ValueError,'Commit source'): pack.build(root/'unused-cli',root.parent/'unused-output')
+            # The single listing image in .claude-plugin is not part of the archive inventory; a second image is refused.
+            (root/'tracked').write_text('clean');(root/'.claude-plugin').mkdir();(root/'.claude-plugin/first.png').write_bytes(b'image');commit()
+            with patch.object(pack,'ROOT',root):
+                with self.assertRaises(FileNotFoundError): pack.build(root/'unused-cli',root.parent/'unused-output')
+            (root/'.claude-plugin/second.png').write_bytes(b'image');commit()
+            with patch.object(pack,'ROOT',root):
+                with self.assertRaisesRegex(ValueError,'one listing image'): pack.build(root/'unused-cli',root.parent/'unused-output')
 
     def test_release_sidecars_bind_both_archives_to_the_reviewed_tree(self):
         release=module('generate-release');repo='https://github.com/ToolsEnabled/toolsenabled-sim'
@@ -246,6 +255,8 @@ class PackagingTests(unittest.TestCase):
             files={'.claude-plugin/plugin.json':json.dumps(metadata).encode(),'manifest.json':json.dumps(metadata).encode(),'tools/dependency-files.json':b'{}','tracked.txt':b'reviewed source'}
             for name,data in files.items():
                 p=source/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data)
+            # The reviewed tree holds the listing image; the archives leave it out.
+            listing={'.claude-plugin/listing.png':b'image'};(source/'.claude-plugin/listing.png').write_bytes(listing['.claude-plugin/listing.png'])
             subprocess.run(['git','init','-q',str(source)],check=True)
             subprocess.run(['git','add','.'],cwd=source,check=True)
             subprocess.run(['git','-c','user.name=Test','-c','user.email=test@example.invalid','commit','-qm','reviewed'],cwd=source,check=True)
@@ -276,6 +287,8 @@ class PackagingTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'wrapper'):release.generate(**params,output=base/'wrapper')
                 artifacts(bundle_files=files|{'extra':b'extra'})
                 with self.assertRaisesRegex(ValueError,'members'):release.generate(**params,output=base/'different-bundle')
+                artifacts(zip_files=files|listing,bundle_files=files|listing)
+                with self.assertRaisesRegex(ValueError,'members'):release.generate(**params,output=base/'listing-image-archived')
                 artifacts()
                 with self.assertRaisesRegex(ValueError,'tree'):release.generate(**(params|{'expected_tree':'b'*40}),output=base/'wrong-tree')
                 out=base/'sidecars';pins=release.generate(**params,output=out)

@@ -42,6 +42,12 @@ def bind_archives(git, commit, expected_tree, archive_bytes, payload, manifest):
         metadata,name=record.split(b'\t',1);mode,kind,oid=metadata.decode().split();name=name.decode()
         if mode not in ('100644','100755') or kind!='blob':raise ValueError('Non-regular reviewed tree member')
         tracked[name]=oid
+    # The one image in .claude-plugin is the plugin directory's listing icon. The directory reads it from the repository and
+    # the archives leave it out (tools/package.mjs, tools/package-mcpb.py), so exactly that image, matched by extension, is
+    # not expected in them; a second one is refused.
+    listing_image=[name for name in tracked if name.startswith('.claude-plugin/') and name.count('/')==1 and name.endswith('.png')]
+    if len(listing_image)>1:raise ValueError('Only one listing image may sit in .claude-plugin')
+    for name in listing_image:del tracked[name]
     inventory=json.loads(git('show',commit+':tools/dependency-files.json'))
     vendored={}
     for name,dependency in inventory.items():
