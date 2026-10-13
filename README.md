@@ -76,6 +76,22 @@ Sim has no dashboard or human-control link. The human starts the hub and finds c
 
 ToolsEnabled is not affiliated with or endorsed by Anthropic. [Privacy](https://toolsenabled.ai/privacy/) · [Support](mailto:support@toolsenabled.ai).
 
+## Try it
+
+No account or API key is needed: the hub and the plugin run on your computer, and Sim calls no model or online service of its own. Start a hub from the extracted release ZIP's `sim/` folder (or a checkout after `npm ci`) and leave it running; then, in another terminal and a new empty folder, install the plugin with the coordinator's connection file:
+
+```sh
+node src/hub-cli.mjs --root /absolute/private-sim-run
+claude plugin marketplace add ToolsEnabled/toolsenabled-sim
+claude plugin install toolsenabled-sim@toolsenabled-sim -s local --config connection_file=/absolute/private-sim-run/connection-coordinator.json
+```
+
+Start `claude` in that folder, approve each Sim tool call when asked, and try these three prompts:
+
+1. `/sim status` opens the read-only Sim pane with `Bound role: coordinator / coordinator`; press `2` for its Result row: `Tick 0 · 0/3 delivered · 0 collisions · score 0`.
+2. `Deliver amber's assigned crate to its zone, advancing the world with sim.step as you go.` Claude drives amber to `cargo-a` and grabs it (`robot.goto`, `robot.grab`), carries it to zone A, releases it (`robot.release`) and advances the world with about ten `sim.step` calls of 60 ticks, then reports 1 of 3 crates delivered, 0 collisions, score 100.
+3. `/toolsenabled-sim:step 60` passes the plugin's preflight, advances the world 60 ticks (one simulated second) and reports the new tick, 1 of 3 delivered and no contacts.
+
 ## What this plugin runs, sends and reads
 
 This covers the Claude Code plugin in this repository: the hooks module `hooks/register.tsx` (a mod) with its helper `hooks/view.mjs`, the MCP server entry in `.mcp.json`, the eight action commands in `commands/` and the skill. The hub, the demo, the live launcher, capture and replay are separate commands you run yourself; the plugin never starts them.

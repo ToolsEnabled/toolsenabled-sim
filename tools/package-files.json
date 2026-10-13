@@ -96,6 +96,7 @@
   "test/protocol-review.test.mjs",
   "test/release.test.mjs",
   "test/render.test.mjs",
+  "test/replay-capture.test.mjs",
   "test/review.test.mjs",
   "test/security.test.mjs",
   "test/views.test.mjs",
