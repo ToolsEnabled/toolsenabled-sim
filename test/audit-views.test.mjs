@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile,writeFile,rm} from 'node:fs/promises';
-import {join,resolve} from 'node:path';
+import {join,resolve,dirname} from 'node:path';
 import {tmpdir} from 'node:os';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {startHub,defaultScenario} from '../src/hub.mjs';
+import {offlineChromium} from '../tools/capture.mjs';
 const cli=resolve('tools/sim-view.mjs');
 const run=(args,env={},input='')=>new Promise(resolve=>{const p=spawn(process.execPath,[cli,...args,'--json'],{env,stdio:['pipe','pipe','pipe']});let out='',err='';p.stdout.on('data',b=>out+=b);p.stderr.on('data',b=>err+=b);p.on('close',code=>{let body;try{body=JSON.parse(out);}catch{}resolve({code,body,out,err});});p.stdin.end(input);});
+const step=async(hub,n)=>{const c=JSON.parse(await readFile(hub.connections.coordinator,'utf8'));const r=await (await fetch(c.url+'/call',{method:'POST',headers:{authorization:`Bearer ${c.token}`},body:JSON.stringify({method:'tools/call',params:{name:'sim.step',arguments:{n}}})})).json();if(r.error)throw new Error(r.error);return r.result;};
 async function setup(live=false){const root=await mkdtemp(join(tmpdir(),'sim-audit-view-'));const hub=await startHub({root,...(live?{live:{budgetMs:120000}}:{})});return {root,hub,env:role=>({SIM_CONNECTION:hub.connections[role],SIM_RUN_ROOT:root}),async close(){await hub.close();await rm(root,{recursive:true,force:true});}};}
 test('help works without configuration and prints native actions and exact Codex skill names',async()=>{
  let offset=0;const rows=[];
@@ -59,7 +61,8 @@ test('scenario checks validate JSON without exposing raw bodies and replay is gu
   const path=join(f.root,'draft.json');await writeFile(path,JSON.stringify(defaultScenario()),{mode:0o600});
   const checked=await run(['scenarios','--check',path],f.env('coordinator'));assert.equal(checked.code,0,checked.err);assert.match(checked.out,/valid/i);
   const request=await run(['action'],f.env('coordinator'),JSON.stringify({verb:'scenario',args:[path]}));assert.equal(request.code,0,request.err);assert.equal(request.body.allowed,true);assert.equal(request.body.request.scenario.name,defaultScenario().name);assert.ok(!request.out.includes(path));
-  await f.hub.close();const guidance=await run(['replay','--root',f.root]);assert.equal(guidance.code,0,guidance.err);assert.match(guidance.out,/tools\/replay\.mjs/);assert.match(guidance.out,/tools\/capture\.mjs/);assert.match(guidance.out,/Chromium/);assert.ok(!guidance.body.verified);
+  // A run with no recorded tick gets no capture command (0.1.8), so record one before checking both lines.
+  await step(f.hub,1);await f.hub.close();const guidance=await run(['replay','--root',f.root]);assert.equal(guidance.code,0,guidance.err);assert.match(guidance.out,/tools\/replay\.mjs/);assert.match(guidance.out,/tools\/capture\.mjs/);assert.match(guidance.out,/Chromium/);assert.ok(!guidance.body.verified);
  }finally{await f.close();}
 });
 test('manual reassignment is visible online and in the archived view without rewriting replay files',async()=>{
@@ -87,4 +90,35 @@ test('merged events keep caller attribution, summarize scenario bodies and exclu
   const own=await run(['events'],f.env('amber'));assert.equal(own.code,0,own.err);assert.equal(own.body.rows.length,2);assert.match(own.out,/coordinator/);assert.match(own.out,/commit/);assert.doesNotMatch(own.out,/script-teal|Robot: teal|RAW-SCENARIO-BODY/);
   const coord=await run(['events'],f.env('coordinator'));assert.equal(coord.body.rows.length,5);assert.match(coord.out,/3 robots/);assert.doesNotMatch(coord.out,/RAW-SCENARIO-BODY/);
  }finally{await f.close();}
+});
+// 0.1.8 product review, Sim #2: the printed capture command had no --seconds, so capture's 10 s default failed for
+// every run under 598 ticks (and every just-reset run) and covered only the first 10 s of longer runs.
+test('replay prints no capture command for a run with no recorded tick, such as a just-reset run',async()=>{
+ const f=await setup();try{
+  for(const env of [f.env('coordinator'),null]){
+   if(!env)await f.hub.close();
+   const r=env?await run(['replay'],env):await run(['replay','--root',f.root]);assert.equal(r.code,0,r.err);const lines=r.body.rows[0].lines;
+   assert.ok(!lines.some(s=>s.includes('tools/capture.mjs')),lines.join('\n'));assert.ok(lines.some(s=>/no recorded tick/.test(s)),lines.join('\n'));
+   assert.ok(lines.some(s=>s.includes('tools/replay.mjs')),lines.join('\n'));
+  }
+ }finally{await f.close();}
+});
+test('replay prints a capture command that covers the whole recorded run and works exactly as printed',async()=>{
+ const chromium=await offlineChromium();
+ const f=await setup();const out=await mkdtemp(join(tmpdir(),'sim-replay-capture-'));
+ try{
+  assert.equal((await step(f.hub,6)).tick,6);
+  const online=await run(['replay'],f.env('coordinator'));assert.equal(online.code,0,online.err);
+  const printed=online.body.rows[0].lines.find(s=>s.includes('tools/capture.mjs'));assert.ok(printed);
+  assert.match(printed,/ --seconds 0\.1$/);
+  await f.hub.close();
+  const offline=await run(['replay','--root',f.root]);assert.equal(offline.code,0,offline.err);assert.equal(offline.body.rows[0].lines.find(s=>s.includes('tools/capture.mjs')),printed);
+  // Run it as printed, in a POSIX shell, with only the chosen new output directory filled in.
+  const frames=join(out,'frames'),command=printed.replace("'<new-absolute-directory>'","'"+frames.replaceAll("'","'\\''")+"'");
+  const result=spawnSync('/bin/sh',['-c',command],{env:{PATH:dirname(process.execPath),SIM_CHROMIUM_EXECUTABLE:chromium,...(process.env.TMPDIR?{TMPDIR:process.env.TMPDIR}:{})},encoding:'utf8',timeout:120000});
+  assert.equal(result.status,0,result.stderr);
+  const receipt=JSON.parse(await readFile(join(frames,'capture-receipt.json'),'utf8'));
+  assert.deepEqual(receipt.cameras,['overview']);assert.equal(receipt.framesPerCamera,3);
+  assert.ok(receipt.times.at(-1)<=6/60&&receipt.times.at(-1)>=3/60,`frames cover the whole 6-tick run: ${receipt.times}`);
+ }finally{await f.close();await rm(out,{recursive:true,force:true});}
 });

@@ -16,7 +16,7 @@ Use **Sim 0.1.1 or later** to verify 0.1.x recordings with the new `budgetPolicy
 
 Use **Sim 0.1.4 or later** to verify a recording whose header names `mujoco@3.14.0`; earlier verifiers refuse that header. Version-1 headers must name Rapier; version-2 headers accept either engine. Rapier recordings are unchanged by the engine option and replay byte-identically on 0.1.4.
 
-A completed scripted run contains 600 simulated steps, 601 state records and one header. It covers ten seconds. The 300-frame sample uses times `i / 30` for `i = 0…299` (0 through 9.966666… seconds); its playback duration at 30 fps is ten seconds.
+A completed scripted run contains 600 simulated steps, 601 state records and one header. It covers ten seconds. The 300-frame sample uses times `i / 30` for `i = 0…299` (0 through 9.966666… seconds); its playback duration at 30 fps is ten seconds. Capture refuses any time past the recorded run, so pass `--seconds` no larger than the run's ticks divided by 60; `/sim replay` prints that value for the selected run.
 
 ## Page capture hook
 

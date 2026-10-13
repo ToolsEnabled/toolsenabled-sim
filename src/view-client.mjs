@@ -15,7 +15,8 @@ const packageVersion=JSON.parse(readFileSync(new URL('../package.json',import.me
 const shell=value=>"'"+value.replaceAll("'","'\\''")+"'";
 export function readScenario(path,assignments){
  if(!isAbsolute(path))throw problem('Scenario path must be absolute.');
- const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);let input;
+ // O_NONBLOCK: a FIFO opens at once instead of waiting for a writer, so the regular-file check below refuses it.
+ const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);let input;
  try{const s=fstatSync(fd);if(!s.isFile()||s.uid!==process.geteuid()||(s.mode&0o022)||s.size>262144)throw problem('Scenario must be an owned, non-writable regular file below 256 KiB.');input=JSON.parse(readFileSync(fd,'utf8'));}
  finally{closeSync(fd);}
  const scenario=validateScenario(input);if(assignments)validateAssignments(assignments,scenario);return scenario;
@@ -34,7 +35,10 @@ function offline(root,identity,params){
  const run=params.get('run')||pointer?.run;
  if(run&&!names.includes(run))throw problem('Run is unavailable.');
  let sim,live;
- if(run){const {header,last}=ends(join(root,run,'trajectory.jsonl'));
+ let saved;
+ // History stays available when the pointer's own run ends in a partial record; the runs view lists it as unreadable.
+ if(run)try{saved=ends(join(root,run,'trajectory.jsonl'));}catch(e){if(!e.incomplete||(params.get('view')||'status')!=='runs')throw e;}
+ if(saved){const {header,last}=saved;
   sim={header,status:()=>({...last.status,deliveryRule,deliveryAreas:deliveryAreas(header.scenario.zones)}),snapshot:()=>last};
   if(run===pointer?.run&&pointer.live)live={viewStatus:()=>({...pointer.live,remainingMs:0})};
  }
@@ -66,9 +70,12 @@ export async function getView({params,connection,root,check}){
   page={...page,...paged(rows,{offset:0,limit:10},[view,scenario]),limit:10};
  }
  if(view==='replay'&&root){privateRoot(root);if(!runNames(root).includes(page.run))throw problem('Run is unavailable.');
-  const runDir=join(root,page.run);page.rows=page.rows.map(r=>({...r,lines:[...r.lines.filter(s=>!s.startsWith('Run tools/')),
+  const runDir=join(root,page.run),{last}=ends(join(runDir,'trajectory.jsonl'));
+  // Capture defaults to 10 s and refuses any time past the run, so the command names the recorded length; a run with
+  // no recorded tick (every just-reset run) has nothing to capture and gets no command.
+  page.rows=page.rows.map(r=>({...r,lines:[...r.lines.filter(s=>!s.startsWith('Run tools/')),
    `node ${shell(join(pluginRoot,'tools/replay.mjs'))} ${shell(runDir)}`,
-   `node ${shell(join(pluginRoot,'tools/capture.mjs'))} --run ${shell(runDir)} --output '<new-absolute-directory>' --cameras overview`,
+   ...(last.tick>0?[`node ${shell(join(pluginRoot,'tools/capture.mjs'))} --run ${shell(runDir)} --output '<new-absolute-directory>' --cameras overview --seconds ${last.tick/60}`]:[]),
   ]}));
  }else if(view==='replay')page.rows[0]?.lines.push('For exact paths, configure run_root on the hub account; copied connection files do not reveal the run directory.');
  return page;

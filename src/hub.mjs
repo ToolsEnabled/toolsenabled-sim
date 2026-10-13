@@ -35,6 +35,16 @@ export async function startHub({root,scenario=defaultScenario(),assignments=defa
   }finally{try{unlinkSync(path);}catch{}}
  }
  function warn(message){try{onWarning(message);}catch{}}
+ // Every journal write is all or nothing for the hub. A write that throws for any reason, or writes only part of its
+ // line (as under a file-size limit), stops the hub before the record and the simulated world can drift apart: no
+ // further call is accepted or journaled, and the live clock stops. Recorded runs stay readable.
+ function journal(fd,line){
+  try{if(writeSync(fd,line)!==Buffer.byteLength(line))throw Object.assign(new Error('Short journal write'),{code:'EIO'});}
+  catch(e){
+   if(!broken){broken=true;const code=typeof e?.code==='string'&&/^[A-Z0-9_]{1,32}$/.test(e.code)?e.code:'error';warn(`Hub stopped after a journal write failed (${code}). It accepts no further calls; recorded runs stay readable. Start a new hub after fixing the run root's storage.`);}
+   liveControl?.close();throw e;
+  }
+ }
  try{
   async function newRun(s,a){
    s=validateScenario(s);a=validateAssignments(a,s);
@@ -51,7 +61,7 @@ export async function startHub({root,scenario=defaultScenario(),assignments=defa
     writeFileSync(join(dir,'work-record.json'),JSON.stringify({version:1,assignments:a},null,2)+'\n',{flag:'wx',mode:0o600});
     writeFileSync(join(dir,'view-meta.json'),JSON.stringify({schema:'ai.toolsenabled/sim-run-view/v1',mode:liveConfig?'live':'manual',liveOptions:liveConfig})+'\n',{flag:'wx',mode:0o600});
     // Re-create with append sinks after successful validation/allocation.
-    next.close();const fresh=await createSim({scenario:s,assignments:a,maxTicks,maxRunBytes,engine,retainLog:false,live:!!liveConfig,onRecord:line=>writeSync(rf,line),onAction:line=>writeSync(af,line)});
+    next.close();const fresh=await createSim({scenario:s,assignments:a,maxTicks,maxRunBytes,engine,retainLog:false,live:!!liveConfig,onRecord:line=>journal(rf,line),onAction:line=>journal(af,line)});
     if(sim)sim.close();if(recordFd!==undefined)closeSync(recordFd);if(actionFd!==undefined)closeSync(actionFd);if(liveFd!==undefined)closeSync(liveFd);
     sim=fresh;liveFd=lf;recordFd=rf;actionFd=af;runDir=dir;sequence=index;
    }catch(e){next.close();if(rf!==undefined)closeSync(rf);if(af!==undefined)closeSync(af);if(lf!==undefined)closeSync(lf);throw e;}
@@ -62,7 +72,7 @@ export async function startHub({root,scenario=defaultScenario(),assignments=defa
   await newRun(scenario,assignments);
   const scheduler=fairScheduler(),inFlight=new Map(),launcherKey=Symbol('launcher');
   const enqueue=fn=>scheduler.enqueue(launcherKey,fn);
-  if(liveConfig)liveControl=createLive({options:liveConfig,getSim:()=>sim,getSequence:()=>sequence,enqueue,record:entry=>{const line=JSON.stringify(entry)+'\n';sim.accountAuditBytes(Buffer.byteLength(line));writeSync(liveFd,line);},onError:e=>{if(e.code!=='RUN_BYTE_BUDGET'){broken=true;liveControl.close();}},onChange:publishViewState});
+  if(liveConfig)liveControl=createLive({options:liveConfig,getSim:()=>sim,getSequence:()=>sequence,enqueue,record:entry=>{const line=JSON.stringify(entry)+'\n';sim.accountAuditBytes(Buffer.byteLength(line));journal(liveFd,line);},onError:e=>{if(e.code!=='RUN_BYTE_BUDGET'){broken=true;liveControl.close();}},onChange:publishViewState});
   const dispatch=async(identity,request)=>{
    if(broken)throw new Error('Hub stopped after storage failure');
    try{liveControl?.expire();}catch(e){if(e.code!=='RUN_BYTE_BUDGET'){broken=true;liveControl?.close();}throw e;}

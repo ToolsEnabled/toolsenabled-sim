@@ -7,7 +7,8 @@ export const problem=(message,status=400)=>Object.assign(new Error(message),{sta
 export const digest=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const stamp=s=>[String(s.dev),String(s.ino),String(s.size),String(s.mtimeNs)];
 export function file(path){
- const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);
+ // O_NONBLOCK: a FIFO opens at once instead of waiting for a writer, so the regular-file check below refuses it.
+ const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
  try{const s=fstatSync(fd,{bigint:true});if(!s.isFile()||Number(s.uid)!==process.geteuid()||Number(s.mode&0o777n)!==0o600||s.size>256n*1024n*1024n)throw problem('Private run file is unavailable.');return {fd,size:Number(s.size),stamp:stamp(s)};}
  catch(e){closeSync(fd);throw e;}
 }
@@ -20,7 +21,7 @@ export function ends(path){
   const head=bytes(f,0,Math.min(f.size,MAX_READ)),end=head.indexOf(10);if(end<0)throw problem('Run header exceeds the view limit.');
   const header=JSON.parse(head.subarray(0,end));
   const tail=bytes(f,Math.max(0,f.size-MAX_READ),Math.min(f.size,MAX_READ));
-  if(tail.at(-1)!==10)throw problem('Run recording is incomplete. Reload the view.',409);
+  if(tail.at(-1)!==10)throw Object.assign(problem('Run recording is incomplete. Reload the view.',409),{incomplete:true});
   const start=tail.lastIndexOf(10,tail.length-2)+1;if(!start&&f.size>MAX_READ)throw problem('Run row exceeds the view limit.');
   const last=JSON.parse(tail.subarray(start,-1));unchanged(f);
   if(header.kind!=='header'||last.kind!=='tick')throw problem('Run recording is unavailable.');

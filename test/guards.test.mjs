@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,readFile,writeFile,mkdir,rm,rmdir,symlink,chmod,truncate} from 'node:fs/promises';
-import {constants,writeSync,readFileSync,closeSync,existsSync} from 'node:fs';
+import {mkdtemp,readFile,writeFile,mkdir,rm,rmdir,symlink,chmod,truncate,stat} from 'node:fs/promises';
+import fs,{constants,writeSync,readFileSync,closeSync,existsSync} from 'node:fs';
+import {syncBuiltinESMExports} from 'node:module';
 import {join,resolve} from 'node:path';
 import {tmpdir} from 'node:os';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {setTimeout as delay} from 'node:timers/promises';
 import {startHub,defaultScenario} from '../src/hub.mjs';
 import {displayText} from '../src/display.mjs';
@@ -234,3 +235,92 @@ test('a failed current-run pointer write never fails an action, stops a live hub
   assert.ok(existsSync(join(f.root,'run-0002','trajectory.jsonl')));assert.ok(!existsSync(join(f.root,'hub.lock')));
  }finally{await chmod(f.root,0o700).catch(()=>{});await f.close();}
 });
+
+// 0.1.8 product review, Sim #1: the hub stopped only for EIO, ENOSPC and EBADF and ignored short
+// writes. Each case makes the next write to one journal of the current run fail in a way the old
+// list missed (a short write that leaves a partial record, as under `ulimit -f`, or EFBIG, EROFS,
+// EDQUOT) by swapping fs.writeSync for that one file and syncing the hub's live ESM binding.
+function failNextJournalWrite(path,kind){
+ const original=fs.writeSync,{dev,ino}=fs.statSync(path);let armed=true;
+ fs.writeSync=function(fd,data,...rest){
+  let target=false;if(armed&&typeof fd==='number')try{const s=fs.fstatSync(fd);target=s.dev===dev&&s.ino===ino;}catch{}
+  if(target){armed=false;
+   if(kind==='short'){const bytes=Buffer.from(data);return original.call(this,fd,bytes.subarray(0,Math.floor(bytes.length/2)));}
+   throw Object.assign(new Error(`${kind}: journal write refused`),{code:kind});
+  }
+  return original.call(this,fd,data,...rest);
+ };
+ syncBuiltinESMExports();
+ return ()=>{if(fs.writeSync!==original){fs.writeSync=original;syncBuiltinESMExports();}};
+}
+const STOPPED='Hub stopped after storage failure';
+const JOURNALS=['trajectory.jsonl','actions.jsonl','live.jsonl'];
+const journalSizes=dir=>Promise.all(JOURNALS.map(n=>stat(join(dir,n)).then(s=>s.size,()=>null)));
+const LIVE={budgetMs:1500,stepTicks:1,activeRobots:['amber']};
+const liveRound=async f=>(await f.call('amber','sim.status')).result.live.round;
+const drive=async(f,live)=>f.call('amber','robot.drive',{robotId:'amber',v:.2,w:0,duration:1,...(live?{round:await liveRound(f)}:{})});
+for(const c of [
+ {journal:'trajectory.jsonl',kind:'short',act:f=>f.call('coordinator','sim.step',{n:1})},
+ {journal:'trajectory.jsonl',kind:'EFBIG',act:f=>f.call('coordinator','sim.step',{n:2})},
+ {journal:'actions.jsonl',kind:'short',act:f=>drive(f,false)},
+ {journal:'actions.jsonl',kind:'EROFS',act:f=>drive(f,false)},
+ {journal:'live.jsonl',kind:'short',live:LIVE,act:f=>drive(f,true)},
+ {journal:'live.jsonl',kind:'EDQUOT',live:LIVE,act:f=>drive(f,true)},
+])test(`${c.kind==='short'?'a short write':'an '+c.kind+' failure'} on ${c.journal} stops the hub: nothing more is accepted or journaled${c.journal==='trajectory.jsonl'&&c.kind==='short'?', and history lists the run as unreadable':''}`,async()=>{
+ const f=await fixture(c.live?{live:c.live,maxTicks:120}:{});let restore=()=>{};
+ try{
+  if(!c.live){
+   // A retained earlier run must stay listed next to the one that failed.
+   assert.equal((await f.call('coordinator','sim.step',{n:2})).error,undefined);
+   assert.equal((await f.call('coordinator','sim.reset')).result.run,'run-0002');
+   assert.equal((await f.call('coordinator','sim.step',{n:1})).error,undefined);
+  }
+  const dir=f.hub.runDir;
+  restore=failNextJournalWrite(join(dir,c.journal),c.kind);
+  const failed=await c.act(f);restore();
+  assert.equal(typeof failed.error,'string','the call whose journal write failed reports it');assert.equal(failed.result,undefined);
+  assert.doesNotMatch(failed.error,new RegExp(f.root));
+  if(c.kind==='short')assert.notEqual((await readFile(join(dir,c.journal))).at(-1),10,'the injected write really was cut short');
+  const frozen=await journalSizes(dir);
+  const later=[['coordinator','sim.status'],['amber','robot.drive',{robotId:'amber',v:.2,w:0,duration:1,...(c.live?{round:'1:0'}:{})}],['coordinator','sim.reset']];
+  if(!c.live)later.push(['coordinator','sim.step',{n:1}]);
+  for(const [who,name,args] of later)assert.equal((await f.call(who,name,args)).error,STOPPED,`${name} after the failure`);
+  // A live hub also stops its deadline clock, so no hold or commit is journaled afterwards.
+  if(c.live)await delay(c.live.budgetMs+700);
+  assert.deepEqual(await journalSizes(dir),frozen,'nothing is journaled after the failure');
+  assert.equal(f.warnings.length,1,f.warnings.join('\n'));assert.match(f.warnings[0],new RegExp(`stopped after a journal write failed \\(${c.kind==='short'?'EIO':c.kind}\\)`));assert.doesNotMatch(f.warnings[0],new RegExp(f.root));
+  if(c.journal==='trajectory.jsonl'&&c.kind==='short'){
+   // History lists the cut-short run as unreadable instead of failing the whole page, online and offline.
+   const runs=await f.request('coordinator',{view:'runs'});assert.equal(runs.status,200,JSON.stringify(runs.body));
+   assert.deepEqual(runs.body.rows.map(r=>r.id),['run-0002','run-0001']);
+   assert.match(runs.body.rows[0].title,/unreadable/);assert.match(runs.body.rows[0].lines.join('\n'),/storage failure/);
+   assert.match(runs.body.rows[1].lines.join('\n'),/Final hash: [0-9a-f]{64}/);
+   await f.hub.close();
+   const offline=await run(['runs','--root',f.root],{});assert.equal(offline.code,0,offline.err);
+   assert.match(offline.out,/run-0002 · unreadable/);assert.match(offline.out,/run-0001 · retained/);
+  }
+ }finally{restore();await f.close();}
+});
+// 0.1.8 product review, Sim #3: opening a FIFO read-only blocked before the regular-file check could refuse it. Each
+// reader runs in a child with a deadline, because before the fix the open itself blocked until the child was killed.
+const settled=(result,label)=>{assert.equal(result.error,undefined,label);assert.equal(result.signal,null,`${label} blocked on the FIFO`);};
+async function withFifo(fn){
+ const root=await mkdtemp(join(tmpdir(),'sim-fifo-'));
+ try{const fifo=join(root,'connection-amber.json');const made=spawnSync('mkfifo',['-m','600',fifo],{encoding:'utf8'});assert.equal(made.status,0,made.stderr);await fn(fifo);}
+ finally{await rm(root,{recursive:true,force:true});}
+}
+for(const [module,name,message] of [['../src/private-files.mjs','readConnection',/^Connection file must be owned by this user with mode 0600$/],['../src/view-files.mjs','file',/^Private run file is unavailable\.$/],['../src/view-client.mjs','readScenario',/^Scenario must be an owned, non-writable regular file below 256 KiB\.$/]])test(`${name} refuses a FIFO at once instead of blocking`,()=>withFifo(fifo=>{
+ const code=`import {${name}} from ${JSON.stringify(new URL(module,import.meta.url).href)};try{${name}(process.argv[1]);console.log('opened');}catch(e){console.log(e.message);}`;
+ const result=spawnSync(process.execPath,['--input-type=module','-e',code,'--',fifo],{env:{},encoding:'utf8',timeout:5000});
+ settled(result,name);assert.equal(result.status,0,result.stderr);assert.match(result.stdout.trim(),message);
+}));
+test('the MCP shim refuses a FIFO as SIM_CONNECTION with its one-line error instead of hanging',()=>withFifo(fifo=>{
+ const shim=spawnSync(process.execPath,[resolve('src/mcp.mjs')],{env:{SIM_CONNECTION:fifo},input:JSON.stringify({jsonrpc:'2.0',id:1,method:'initialize',params:{}})+'\n',encoding:'utf8',timeout:5000});
+ settled(shim,'mcp.mjs');assert.equal(shim.status,1);assert.equal(shim.stderr,'Invalid SIM_CONNECTION file.\n');assert.equal(shim.stdout,'');
+}));
+test('sim-view, which the pane and action preflight run, refuses a FIFO connection at once',()=>withFifo(fifo=>{
+ const view=spawnSync(process.execPath,[cli,'status'],{env:{SIM_CONNECTION:fifo},encoding:'utf8',timeout:5000});
+ settled(view,'sim-view');assert.equal(view.status,1);assert.match(view.stderr,/configured private Sim connection is unavailable/);
+ const action=spawnSync(process.execPath,[cli,'action'],{env:{SIM_CONNECTION:fifo},input:JSON.stringify({verb:'step',args:[]}),encoding:'utf8',timeout:5000});
+ settled(action,'sim-view action');assert.equal(action.status,0,action.stderr);assert.equal(JSON.parse(action.stdout).allowed,false);
+}));
