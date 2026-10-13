@@ -76,10 +76,12 @@ export async function startHub({root,scenario=defaultScenario(),assignments=defa
      if(name.startsWith('robot.')&&identity.role!=='robot')throw new Error('Live controls require the owned robot caller');
      if(name==='sim.step')throw new Error('Live stepping is owned by the launcher barrier');
      if(name==='sim.assign')throw new Error('Live assignments are fixed until reset');
-     if(name==='sim.status')return {...sim.status(),live:liveControl.status()};
+     if(name==='sim.status')return {...sim.status(),live:liveControl.status(),whoami:{...identity}};
      if(name==='robot.submit')return liveControl.submit(identity,args.robotId,args.round);
      if(name.startsWith('robot.'))return liveControl.command(identity,name,args.robotId,args.round,()=>sim.invoke(identity,name,args));
     }
+    // A caller learns only its own fixed identity, never another connection's.
+    if(name==='sim.status')return {...sim.invoke(identity,name,args),whoami:{...identity}};
     return sim.invoke(identity,name,args);}catch(e){if(['EIO','ENOSPC','EBADF'].includes(e.code)){broken=true;liveControl?.close();}throw e;}
   };
   const viewingNow=new Set();

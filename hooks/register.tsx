@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { views, actions, usage, commandInput, parsePage, detailLines, localHelp, readerCommand } from './view.mjs'
+import { views, usage, commandInput, parsePage, detailLines, localHelp, readerCommand } from './view.mjs'
 
 const PANE='toolsenabled-sim-view'
 let serial=0,opened=false,loading=false,collision=false
@@ -49,30 +49,47 @@ async function paneKey($:any,key:string,connection:string,root:string){
  if(key==='a'){if(selectedView==='events'&&!detail){stream=stream==='all'?'actions':stream==='actions'?'rounds':'all';history=[];await load($,connection,root)}else notice($,'Event stream selection is available in the events list.');return}
  if(/^[0-9]$/.test(key)){const index=(Number(key)+9)%10;if(!detail&&page?.rows[index]){detail=page.rows[index];detailOffset=0;hint='';redraw($)}else notice($,`Row ${key} is not available in this view.`)}
 }
+const unavailable='Sim action unavailable. Check this session’s private connection.'
+// An action's checks before any model turn: its refusal, answered as the command's own output, or null.
+async function actionRefusal($:any,verb:string,e:any,connection:string,root:string){
+ const command=commandInput(verb+(e.args?' '+e.args:''))
+ if(!command||command.kind!=='action')return {text:usage}
+ // The model reads the typed scenario path, so it must be exactly the path the preflight opens.
+ if(verb==='scenario'&&e.args.trim()!==command.args[0])return {text:usage}
+ // Only the person's own prompt, at this terminal or through Remote Control, starts a Sim action.
+ if(!['composer','bridge'].includes(e.origin.kind))return {text:'Type the Sim action yourself to request it.'}
+ const actionEpoch=++serial
+ let plan:any
+ try{
+  const result=await $.process.run(readerCommand($.plugin.root,'action',connection,root,await $.env.get('PATH')),{cwd:$.plugin.root,stdin:JSON.stringify({verb,args:command.args}),timeoutMs:5000})
+  if(result.exitCode!==0||result.isStdoutTruncated||result.isStderrTruncated||result.stdout.length>65536)throw new Error('preflight')
+  if(actionEpoch!==serial)return {text:'Sim action cancelled.'}
+  plan=JSON.parse(result.stdout)
+  if(plan.schema!=='ai.toolsenabled/sim-action/v1'||typeof plan.allowed!=='boolean')throw new Error('preflight')
+ }catch{plan={allowed:false,reason:unavailable}}
+ if(!plan.allowed){
+  clear();opened=true;selectedView='status';error=typeof plan.reason==='string'?plan.reason.replace(/[\p{Cc}\p{Cf}\p{Cs}]/gu,'?').slice(0,240):'Action refused.'
+  await $.ui.open({id:PANE,title:'Sim',focus:true,closeOnEscape:true,holdToasts:true,rows:22,columns:90});redraw($)
+  return {text:'Sim pane opened.'}
+ }
+ if(!plan.request||plan.request.verb!==verb)return {text:'Sim action preflight returned invalid data.'}
+ return null
+}
+// A failed action hook refuses rather than skip the checks; a command it already passed on is replayed unchanged.
+function failedAction($:any,e:any,next:any){return next.called?next(e):{text:unavailable}}
 export const register: Register = (on,options) => {
  const connection=String(options.connection_file||''),root=String(options.run_root||'')
- for(const verb of actions)on('command.run',{command:`toolsenabled-sim:${verb}`},async($,e,next)=>{
-  const command=commandInput(verb+(e.args?' '+e.args:''))
-  if(!command||command.kind!=='action')return {text:usage}
-  if(!['composer','bridge'].includes(e.origin.kind))return {text:'Type the Sim action yourself to request it.'}
-  const actionEpoch=++serial
-  let plan:any
-  try{
-   const result=await $.process.run(readerCommand($.plugin.root,'action',connection,root,await $.env.get('PATH')),{cwd:$.plugin.root,stdin:JSON.stringify({verb,args:command.args}),timeoutMs:5000})
-   if(result.exitCode!==0||result.isStdoutTruncated||result.isStderrTruncated||result.stdout.length>65536)throw new Error('preflight')
-   if(actionEpoch!==serial)return {text:'Sim action cancelled.'}
-   plan=JSON.parse(result.stdout)
-   if(plan.schema!=='ai.toolsenabled/sim-action/v1'||typeof plan.allowed!=='boolean')throw new Error('preflight')
-  }catch{plan={allowed:false,reason:'Sim action unavailable. Check this session’s private connection.'}}
-  if(!plan.allowed){
-   clear();opened=true;selectedView='status';error=typeof plan.reason==='string'?plan.reason.replace(/[\p{Cc}\p{Cf}\p{Cs}]/gu,'?').slice(0,240):'Action refused.'
-   await $.ui.open({id:PANE,title:'Sim',focus:true,closeOnEscape:true,holdToasts:true,rows:22,columns:90});redraw($)
-   return {text:'Sim pane opened.'}
-  }
-  if(!plan.request||plan.request.verb!==verb)return {text:'Sim action preflight returned invalid data.'}
-  // Native Markdown supplies the normal model turn and existing tool approvals.
-  return next({...e,args:JSON.stringify(plan.request)})
- })
+ // The eight actions are this plugin's own Markdown commands (commands/<verb>.md). A refused action is
+ // answered here and never runs. Otherwise the event goes on unchanged: the command runs exactly as typed,
+ // and its prompt keeps the normal tool approvals.
+ on('command.run',{command:'toolsenabled-sim:deliver'},async($,e,next)=>{const refused=await actionRefusal($,'deliver',e,connection,root);if(refused)return refused;return next(e)}).catch(failedAction)
+ on('command.run',{command:'toolsenabled-sim:move'},async($,e,next)=>{const refused=await actionRefusal($,'move',e,connection,root);if(refused)return refused;return next(e)}).catch(failedAction)
+ on('command.run',{command:'toolsenabled-sim:hold'},async($,e,next)=>{const refused=await actionRefusal($,'hold',e,connection,root);if(refused)return refused;return next(e)}).catch(failedAction)
+ on('command.run',{command:'toolsenabled-sim:submit'},async($,e,next)=>{const refused=await actionRefusal($,'submit',e,connection,root);if(refused)return refused;return next(e)}).catch(failedAction)
+ on('command.run',{command:'toolsenabled-sim:step'},async($,e,next)=>{const refused=await actionRefusal($,'step',e,connection,root);if(refused)return refused;return next(e)}).catch(failedAction)
+ on('command.run',{command:'toolsenabled-sim:assign'},async($,e,next)=>{const refused=await actionRefusal($,'assign',e,connection,root);if(refused)return refused;return next(e)}).catch(failedAction)
+ on('command.run',{command:'toolsenabled-sim:scenario'},async($,e,next)=>{const refused=await actionRefusal($,'scenario',e,connection,root);if(refused)return refused;return next(e)}).catch(failedAction)
+ on('command.run',{command:'toolsenabled-sim:reset'},async($,e,next)=>{const refused=await actionRefusal($,'reset',e,connection,root);if(refused)return refused;return next(e)}).catch(failedAction)
  on('session.start',async($,e,next)=>{
   clear();collision=(await $.command.list()).some(c=>c.name==='sim'&&!(c.source==='plugin'&&c.plugin==='toolsenabled-sim'))
   if(!collision)await $.command.register({name:'sim',description:'Read Sim state, robots, history and help in a local pane',argumentHint:'[status|help|robots|map|runs|events|scenarios|replay|connection]'})

@@ -6,7 +6,7 @@ test('native action commands have scoped prompts, literal arguments and normal a
  for(const name of names){
   const text=await readFile(new URL(`../commands/${name}.md`,import.meta.url),'utf8');
   assert.match(text,/^---\ndescription: .+/);assert.match(text,/disable-model-invocation: true/);
-  assert.match(text,/sim\.status/);assert.match(text,/bound/);assert.match(text,/normal tool approvals/);
+  assert.match(text,/sim\.status/);assert.match(text,/bound/);assert.match(text,/normal tool approvals/);assert.match(text,/whoami/);
   assert.doesNotMatch(text,/allowed-tools:|!`|\$\{|Bash\(/);
   if(['deliver','move'].includes(name))assert.match(text,/\$ARGUMENTS/);
  }

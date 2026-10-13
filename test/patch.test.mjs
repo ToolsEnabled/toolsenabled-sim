@@ -56,6 +56,20 @@ test('unbound offline events explain empty visibility in manual and live runs, p
   }finally{await c?.close();await hub?.close();await rm(temp,{recursive:true,force:true});}
  }
 });
+test('sim.status names only the caller’s own bound identity, never its capability, in manual and live mode',async()=>{
+ for(const live of [false,true]){
+  const temp=await mkdtemp(join(tmpdir(),'sim-whoami-'));let hub;const clients=[];
+  try{
+   hub=await startHub({root:temp,...(live?{live:{budgetMs:120000}}:{})});
+   for(const [id,file] of Object.entries(hub.connections)){
+    const config=JSON.parse(await readFile(file,'utf8')),c=new McpClient(file);clients.push(c);await c.initialize();const status=await c.call('sim.status',{});
+    assert.deepEqual(status.whoami,{role:config.role,agentId:config.agentId,...(config.role==='robot'?{robotId:config.robotId}:{})});
+    assert.equal(id==='coordinator'?status.whoami.role:status.whoami.robotId,id==='coordinator'?'coordinator':id);assert.equal('live' in status,live);
+    assert.ok(!JSON.stringify(status).includes(config.token));assert.ok(!JSON.stringify(status).includes(config.url));
+   }
+  }finally{for(const c of clients)await c.close();await hub?.close();await rm(temp,{recursive:true,force:true});}
+ }
+});
 test('both marketplace entries resolve to the shipped plugin root with matching identities and release versions',async()=>{
  const pkg=JSON.parse(await readFile(join(root,'package.json')));
  for(const [catalog,manifest] of [['.claude-plugin/marketplace.json','.claude-plugin/plugin.json'],['.agents/plugins/marketplace.json','.codex-plugin/plugin.json']]){

@@ -1,6 +1,6 @@
 # MCP contract
 
-Transport: UTF-8 newline-delimited JSON-RPC 2.0 over stdio. Stdout contains protocol messages only. Initialize with protocol `2025-06-18` (also accepts `2025-03-26` and `2024-11-05`), then use `tools/list` and `tools/call`. `ping` also works before initialization. Notifications have no reply. A connection reads its identity and loopback capability from `SIM_CONNECTION` at startup; changing tool arguments cannot change that identity.
+Transport: UTF-8 newline-delimited JSON-RPC 2.0 over stdio. Stdout contains protocol messages only. Initialize with protocol `2025-06-18` (also accepts `2025-03-26` and `2024-11-05`), then use `tools/list` and `tools/call`. `ping` also works before initialization. Notifications have no reply. A connection reads its identity and loopback capability from `SIM_CONNECTION` at startup; changing tool arguments cannot change that identity. `sim.status` reports that identity as `whoami`, never the capability.
 
 Each successful call contains text JSON and `structuredContent.result`. Tool failures return `isError: true`. Malformed JSON, missing initialization and unknown protocol methods use JSON-RPC errors. Golden manifests cover manual [coordinator](../test/fixtures/tools.json) and [robot](../test/fixtures/robot-tools.json), plus live [coordinator](../test/fixtures/live-tools.json) and [robot](../test/fixtures/live-robot-tools.json).
 
@@ -12,7 +12,7 @@ Each successful call contains text JSON and `structuredContent.result`. Tool fai
 | `robot.grab` | Robot/coord | `robotId, crateId` | Assigned, unheld crate within 0.85 m and ±0.4 rad in front. Attach rigidly (a Rapier fixed joint or a MuJoCo weld) and stop current motion. |
 | `robot.release` | Robot/coord | `robotId` | Detach the held crate and set its velocity to zero. Delivery requires the whole crate inside its destination zone. |
 | `robot.submit` | Owned robot only, live only | `robotId, round` | Finish this robot’s batch; commit when all active robots have submitted. |
-| `sim.status` | All | none | Tick, simulation seconds, delivered/total, collision episodes, score, completion, remaining ticks, `deliveryRule` and `deliveryAreas`. |
+| `sim.status` | All | none | Tick, simulation seconds, delivered/total, collision episodes, score, completion, remaining ticks, `deliveryRule` and `deliveryAreas`, plus `whoami`: the caller's own fixed `role`, `agentId` and, for a robot connection, `robotId`. |
 | `sim.step` | Coordinator/human | `n` | Advance every robot by 1…60 ticks. Fixed 1/60 s timestep; default total run budget 36,000 ticks. |
 | `sim.assign` | Coordinator/human | `robotId, crateId, taskId, ledgerId` | Assign subsequent work. Cannot take a held crate or a different robot's assigned crate; stable agent ID is preserved. |
 | `sim.assignments` | Coordinator/human | none | Read current crate assignments and the stable agent→robot mapping. |

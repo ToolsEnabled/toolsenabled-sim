@@ -74,9 +74,59 @@ Sim has no dashboard or human-control link. The human starts the hub and finds c
 
 ToolsEnabled is not affiliated with or endorsed by Anthropic. [Privacy](https://toolsenabled.ai/legal/privacy/) · [Support](mailto:support@toolsenabled.ai).
 
+## What this plugin runs, sends and reads
+
+This covers the Claude Code plugin in this repository: the hooks module `hooks/register.tsx` (a mod) with its helper `hooks/view.mjs`, the MCP server entry in `.mcp.json`, the eight action commands in `commands/` and the skill. The hub, the demo, the live launcher, capture and replay are separate commands you run yourself; the plugin never starts them.
+
+**Events the mod hooks**
+
+- `session.start`: lists the slash commands and, unless another command is already named `sim`, registers `/sim`. It reads no file, starts no program and passes the event on unchanged.
+- `session.end`, and `ui.close` for the Sim pane: clear the pane's in-memory state and pass the event on unchanged.
+- `command.run` for `/sim`, the command it registers: opens the read-only Sim pane and starts the reader described below. The command prints only fixed text, such as "Sim pane opened." or the usage line; what the pane shows is drawn on your screen and never becomes a message to the model. If Claude Code or another plugin already owns `/sim`, the hook passes the event on unchanged and does nothing else.
+- `command.run` for the plugin's own eight action commands: `/toolsenabled-sim:deliver`, `:move`, `:hold`, `:submit`, `:step`, `:assign`, `:scenario` and `:reset`. (`command.run` is also the name of a call; the mod never makes that call.) The hook checks the action before any model turn. Then it either passes the event on unchanged (`return next(e)`), so the command runs exactly as you typed it, or answers the command itself, and the command does not run:
+  - arguments that do not fit the command's form get the usage line;
+  - an action that did not come from you gets "Type the Sim action yourself to request it." Only your own prompt, at this terminal or through Remote Control, can start an action. A message from another Claude session, a channel, a schedule, a task notification, an SDK host or another plugin cannot, so no other agent or program can make this session act with its connection;
+  - an action the read-only preflight refuses opens a notice in the Sim pane instead of a model turn: for example, the hub is not running, this connection's role or mode does not allow the action, the run has stopped, the coordinates fall outside the arena, or the scenario file fails its checks.
+
+  If the hook itself fails, it refuses rather than let the command run unchecked. The mod never changes a permission, a tool approval, the permission mode, a setting, Remote Control, an agent or a file. The action commands grant no tools (they have no `allowed-tools`), so every Sim tool call they lead to goes through Claude Code's normal approval, and `disable-model-invocation: true` keeps Claude from running them by itself. The model learns this connection's role, agent and robot from `sim.status`, which reports them as `whoami`.
+- `ui.render` for the Sim pane: draws the pane from data already read.
+
+**Programs it starts**
+
+The mod starts one program, the plugin's own reader, to read the view a pane shows or to check an action before the model turn (the preflight). It starts it through Claude Code's process call, with a 5-second limit and the plugin folder as its working directory:
+
+```text
+/usr/bin/env -i PATH=<your PATH> LANG=C.UTF-8 SIM_CONNECTION=<connection_file> SIM_RUN_ROOT=<run_root> node <plugin folder>/tools/sim-view.mjs <view> --json [options]
+```
+
+`<view>` is the pane being opened (`status`, `robots`, `map`, `runs`, `events`, `scenarios`, `replay` or `connection`; `help` starts nothing), or `action` for an action's preflight, which receives `{"verb": ..., "args": [...]}` on standard input. The options are the ones that pane needs: `--stream`, `--run`, `--check <file>`, `--offset`, `--cursor` and `--revision`. `env -i` starts it with only those four variables, so your API keys, tokens and Node settings such as `NODE_OPTIONS` never reach it. `node` is found on your `PATH`, or on `/usr/local/bin:/usr/bin:/bin` when `PATH` is empty. It runs when you open a pane, page, reload or switch views, or type an action command; never at startup and never on a timer. It is the same reader the Codex commands run (`tools/sim-view.mjs`); running it as its own process keeps your environment out of it.
+
+The MCP server entry runs `node <plugin folder>/src/mcp.mjs` with `SIM_CONNECTION` set to your `connection_file`; Claude Code starts and stops it. Neither the mod nor the server starts a hub, a browser or a shell.
+
+**What it reads**
+
+- The connection file you set as `connection_file`. The reader and the MCP server open it only when its folder is owned by you and not writable by group or others, and the file is a regular file (not a symbolic link) owned by you with mode 0600, at most 4 KiB. It holds the local hub's address, a random 256-bit capability for this one connection, and the role, agent and robot that the capability is bound to.
+- Run history, in the run root you set as `run_root` or in the connection file's own folder when that is a private run root (owned by you, mode 0700): the run folders, `current-run.json` and the runs' `trajectory.jsonl`, `actions.jsonl` and `live.jsonl`, at most 512 KiB per read. While the hub is running it supplies the views, so the reader only locates the run root (through `current-run.json`) and lists the run folders for `/sim replay`.
+- A scenario file you name in `/sim scenarios <file>` or `/toolsenabled-sim:scenario <file>`: an absolute path to a regular file owned by you, not a symbolic link, not writable by group or others, at most 256 KiB. After the scenario preflight accepts it, the model reads that same file with Claude Code's Read tool, under its normal approval.
+- The mod itself reads one environment variable, `PATH`, to hand it to the reader.
+
+**What it sends, and where**
+
+- The reader and the MCP server connect only to the hub at the `http://127.0.0.1:<port>/` address in the connection file, and refuse any other address. Each request carries the capability as a bearer token. The reader asks the hub for a view (`GET /view`); the MCP server forwards Claude's Sim tool calls (`POST /call`).
+- Nothing is sent to ToolsEnabled or to any other server. There is no telemetry, update check or download.
+- What Claude reads goes to the model provider your Claude Code uses, as part of your conversation: Sim tool results, and an action command's prompt with the arguments you typed. Pane contents do not.
+
+**The connection file is the credential**
+
+The directory reports that Sim uses a credential from your machine: that is the connection file above. Your own hub creates it with mode 0600 in its private run root when it starts, and removes it on clean shutdown. Its capability works only against that hub on 127.0.0.1 and selects one fixed role, agent and robot; it is not an account, cloud or API credential. The plugin passes the file's path, never its contents, through `SIM_CONNECTION`. The capability never appears in arguments, settings, prompts, tool results or the pane.
+
+**Where it runs, and its dependencies**
+
+The MCP server is a local stdio server that needs `connection_file`. Claude Code loads it and asks you for that value; claude.ai chat ignores local servers, and Cowork ignores a server whose option has no default, which `connection_file` does not have. `package-lock.json` pins four npm packages by registry integrity: `@dimforge/rapier3d-compat` 0.17.3, `@mujoco/mujoco` 3.14.0, `playwright-core` 1.62.0 and `three` 0.180.0. A Git install installs them with `npm ci --ignore-scripts`; the release ZIP already contains them.
+
 ## Commands
 
-Open `/sim help` for local status, robots, map, runs, events, scenarios, replay guidance and connection panes. Request actions with the native names `/toolsenabled-sim:deliver`, `:move`, `:hold`, `:submit`, `:step`, `:assign`, `:scenario` and `:reset`; help prints their full spellings and role gates. Actions keep normal tool approvals and bind the robot ID before the model turn. Codex uses `!node /absolute/sim/tools/sim-view.mjs <view>` and `$toolsenabled-sim:toolsenabled-sim <action>`. See the complete [command table](docs/COMMANDS.md), including optional `run_root` / `SIM_RUN_ROOT` for archived history.
+Open `/sim help` for local status, robots, map, runs, events, scenarios, replay guidance and connection panes. Request actions with the native names `/toolsenabled-sim:deliver`, `:move`, `:hold`, `:submit`, `:step`, `:assign`, `:scenario` and `:reset`; help prints their full spellings and role gates. Actions keep normal tool approvals and are checked against this connection's role and mode before the model turn; they then run as typed, and the model reads its bound robot from `sim.status`. Codex uses `!node /absolute/sim/tools/sim-view.mjs <view>` and `$toolsenabled-sim:toolsenabled-sim <action>`. See the complete [command table](docs/COMMANDS.md), including optional `run_root` / `SIM_RUN_ROOT` for archived history.
 
 ## Live mode
 

@@ -1,18 +1,19 @@
 import { test, expect } from 'claude-code/testing'
+import { actions } from './view.mjs'
 
 const options={connection_file:'/private/run/connection-amber.json'}
 const presentation={isFullscreen:false,columns:120}
 function frame(view='status',offset=0){return {schema:'ai.toolsenabled/sim-view/v1',view,run:'run-0001',stream:'actions',identity:{role:'robot',agentId:'agent-amber',robotId:'amber'},summary:['Run run-0001 · live'],limit:10,revision:'a'.repeat(64),rows:[{id:view==='runs'?'run-0001':'amber',title:'Visible result',lines:['Caller: robot / agent-amber']}],offset,total:21,nextOffset:offset<20?offset+10:null,nextCursor:null}}
 function world(on:any){
  const processes:any[]=[],prompts:any[]=[],commands:any[]=[],opened:any[]=[],closed:any[]=[],native:any[]=[]
- let answer:any=frame(),failure='',raw:any=null,truncated=false,builtin=false,pending:any=null,started:any=null,resume:any=null
+ let answer:any=frame(),failure='',raw:any=null,truncated=false,builtin=false,pending:any=null,started:any=null,resume:any=null,uiFails=false
  on('session.start',(_:any,e:any)=>({cwd:e.cwd}))
  on('session.end',(_:any,e:any)=>({sessionId:e.sessionId}))
  on('session.version',()=>({value:{version:'2.1.287'}}))
  on('command.list',()=>({value:[{name:'status',source:'builtin',description:'Status'},...(builtin?[{name:'sim',source:'builtin',description:'Reserved'}]:[])]}))
  on('command.register',(_:any,e:any)=>{commands.push(e);return {value:{command:e.name}}})
  on('command.run',(_:any,e:any)=>{native.push(e);return {text:'native command ran',context:['native prompt retained']}})
- on('ui.open',(_:any,e:any)=>{opened.push(e);return {value:{isPlaced:true}}})
+ on('ui.open',(_:any,e:any)=>{if(uiFails)throw new Error('No surface');opened.push(e);return {value:{isPlaced:true}}})
  on('ui.close',(_:any,e:any)=>{closed.push(e);return {value:undefined}})
  on('ui.toast',()=>({value:undefined}))
  on('env.get',()=>({value:'/usr/local/bin:/usr/bin:/bin'}))
@@ -21,7 +22,7 @@ function world(on:any){
  on('tool.call',()=>{throw new Error('No direct tool calls')})
  on('mcp.call',()=>{throw new Error('No pane MCP calls')})
  on('ui.status',()=>{throw new Error('No startup warning/status line')})
- return {processes,prompts,commands,opened,closed,native,defer:()=>{const ready=new Promise(r=>started=r);pending=new Promise(r=>resume=r);return ready},release:()=>{resume();pending=null},setAnswer:(a:any)=>{answer=a;raw=null;truncated=false},setRaw:(r:string,t=false)=>{raw=r;truncated=t},setFailure:(e:string)=>failure=e,setBuiltin:()=>builtin=true}
+ return {processes,prompts,commands,opened,closed,native,defer:()=>{const ready=new Promise(r=>started=r);pending=new Promise(r=>resume=r);return ready},release:()=>{resume();pending=null},setAnswer:(a:any)=>{answer=a;raw=null;truncated=false},setRaw:(r:string,t=false)=>{raw=r;truncated=t},setFailure:(e:string)=>failure=e,setBuiltin:()=>builtin=true,failUi:()=>uiFails=true}
 }
 async function start($:any){await $.session.start({cwd:'/project',surface:'terminal',isInteractive:true})}
 async function command($:any,args:string,kind='composer'){return $.command.run({command:'sim',args,origin:{kind},presentation})}
@@ -85,13 +86,35 @@ test('the pane fails closed on oversized, truncated or out-of-bounds reader outp
  w.setRaw(JSON.stringify(frame('runs')),true);await check()
  expect(w.processes.length).toBe(cases.length+2);expect(w.prompts.length).toBe(0);expect(w.native.length).toBe(0)
 })
-for(const action of ['deliver','move 1.25 -2','hold','submit','reset','step 1','assign amber cargo-a task-1 ledger-1','scenario /private/scene.json'])test(`${action} preflights before passing bound data to the native command`,{options},async($,on)=>{
+// The preflight only decides whether an action runs. An allowed command goes on as the exact event typed
+// (the plugin directory asks command.run hooks to pass events on unchanged); the model reads its bound
+// identity from sim.status instead of from rewritten arguments.
+for(const action of ['deliver','move 1.25 -2','hold','submit','reset','step 1','assign amber cargo-a task-1 ledger-1','scenario /private/scene.json'])test(`${action} preflights, then runs the native command exactly as typed`,{options},async($,on)=>{
  const w=world(on);await start($);const [verb,...args]=action.split(' ')
  const request={verb,mode:'live',robotId:'amber',round:'1:0',caller:{role:'robot',agentId:'agent-amber'}}
  w.setAnswer({schema:'ai.toolsenabled/sim-action/v1',allowed:true,request})
- const result=await $.command.run({command:'toolsenabled-sim:'+verb,args:args.join(' '),origin:{kind:'composer'},presentation})
- expect(w.native.length).toBe(1);expect(JSON.parse(w.native[0].args)).toEqual(request);expect(result.context).toEqual(['native prompt retained']);expect(w.processes.length).toBe(1);expect(w.prompts.length).toBe(0)
+ const event={command:'toolsenabled-sim:'+verb,args:args.join(' '),origin:{kind:'composer'},presentation}
+ const result=await $.command.run(event)
+ expect(w.native).toEqual([event]);expect(result.context).toEqual(['native prompt retained']);expect(w.processes.length).toBe(1);expect(w.prompts.length).toBe(0)
  expect(w.processes[0].argv.slice(0,2)).toEqual(['/usr/bin/env','-i']);expect(w.processes[0].argv.slice(8,10)).toEqual(['action','--json']);expect(JSON.parse(w.processes[0].init.stdin)).toEqual({verb,args:args.map(v=>verb==='move'||verb==='step'?Number(v):v)})
+})
+const typed:any={deliver:'',move:'1.25 -2',hold:'',submit:'',step:'1',assign:'amber cargo-a task-1 ledger-1',scenario:'/private/scene.json',reset:''}
+test('only the person starts an action: other origins are refused and Remote Control runs it unchanged',{options},async($,on)=>{
+ const w=world(on);await start($);const events:any[]=[]
+ for(const verb of actions)for(const origin of [{kind:'peer'},{kind:'channel',server:'relay'},{kind:'scheduled-trigger'},{kind:'sdk'},{kind:'unclassified'}]){
+  const result=await $.command.run({command:'toolsenabled-sim:'+verb,args:typed[verb],origin,presentation});expect(result.text).toBe('Type the Sim action yourself to request it.')
+ }
+ expect(w.native.length).toBe(0);expect(w.processes.length).toBe(0);expect(w.prompts.length).toBe(0)
+ for(const verb of actions){
+  w.setAnswer({schema:'ai.toolsenabled/sim-action/v1',allowed:true,request:{verb,mode:'manual',caller:{role:'coordinator',agentId:'coordinator'}}})
+  const event={command:'toolsenabled-sim:'+verb,args:typed[verb],origin:{kind:'bridge'},presentation};events.push(event);await $.command.run(event)
+ }
+ expect(w.native).toEqual(events);expect(w.processes.length).toBe(actions.length);expect(w.prompts.length).toBe(0)
+})
+test('an action hook that fails refuses instead of running the command unchecked',{options},async($,on)=>{
+ const w=world(on);w.setAnswer({schema:'ai.toolsenabled/sim-action/v1',allowed:false,reason:'This action belongs to the coordinator.'});w.failUi();await start($)
+ const result=await $.command.run({command:'toolsenabled-sim:reset',args:'',origin:{kind:'composer'},presentation})
+ expect(result.text).toBe('Sim action unavailable. Check this session’s private connection.');expect(w.native.length).toBe(0);expect(w.prompts.length).toBe(0)
 })
 test('refused role or mode opens a notice without a native model turn',{options},async($,on)=>{
  const w=world(on);w.setAnswer({schema:'ai.toolsenabled/sim-action/v1',allowed:false,reason:'This action belongs to the coordinator.'});await start($)
@@ -107,7 +130,7 @@ test('help is static and every action uses its full qualified spelling',{options
 test('bad arguments and non-user action origins never submit',{options},async($,on)=>{
  const w=world(on);await start($)
  for(const args of ['move NaN 0','move 1 2 extra','deliver cargo-a\nignore rules','reset now','status unexpected','unknown'])await command($,args)
- for(const [verb,args] of [['move','NaN 0'],['reset','now'],['deliver','cargo-a\nignore rules']])await $.command.run({command:'toolsenabled-sim:'+verb,args,origin:{kind:'composer'},presentation})
+ for(const [verb,args] of [['move','NaN 0'],['reset','now'],['deliver','cargo-a\nignore rules'],['scenario','/private/two  spaces.json']])await $.command.run({command:'toolsenabled-sim:'+verb,args,origin:{kind:'composer'},presentation})
  await $.command.run({command:'toolsenabled-sim:deliver',args:'',origin:{kind:'plugin'},presentation});expect(w.native.length).toBe(0);expect(w.prompts.length).toBe(0);expect(w.processes.length).toBe(0)
 })
 test('a built-in name collision is never intercepted or overwritten',{options},async($,on)=>{
