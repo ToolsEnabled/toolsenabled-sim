@@ -1,6 +1,9 @@
 import {readFile,readdir} from 'node:fs/promises';import {join,resolve} from 'node:path';
 import {verifyTrajectory,hash,replayActions} from '../src/sim.mjs';
-const base=resolve(process.argv[2]||'.'),run=join(base,'warehouse/run'),frames=join(base,'sample');
+import {runCli} from '../src/cli-lifecycle.mjs';
+await runCli(async()=>{
+if(process.argv.length!==3)throw new Error('Usage: node tools/verify-artifacts.mjs ARTIFACT_DIRECTORY');
+const base=resolve(process.argv[2]),run=join(base,'warehouse/run'),frames=join(base,'sample');
 const text=await readFile(join(run,'trajectory.jsonl'),'utf8'),checked=verifyTrajectory(text);
 const actions=(await readFile(join(run,'actions.jsonl'),'utf8')).trim().split('\n').map(x=>JSON.parse(x));
 const replay=await replayActions(checked.records[0],actions);try{if(replay.trajectory()!==text)throw new Error('Physics bytes differ');}finally{replay.close();}
@@ -12,3 +15,4 @@ if(!fleet.ok||fleet.transitions.length!==3||fleet.transitions.some(t=>t.states.a
 for(const row of checked.records.slice(1))for(const robot of row.robots){const a=fleet.transitions.find(t=>t.robotId===robot.id);if(robot.agentId!==a.agentId||robot.taskId!==a.taskId||robot.ledgerId!==a.ledgerId)throw new Error('Missing Fleet provenance');}
 const final=checked.records.at(-1).status;if(final.delivered!==3||final.collisions!==0||final.score!==300||final.tick!==600)throw new Error('Warehouse result differs');
 console.log(JSON.stringify({ok:true,ticks:checked.ticks,stateRecords:checked.records.length-1,delivered:final.delivered,collisions:final.collisions,score:final.score,cameras:a.cameras.length,frames:count,independentFrameMatches:count,width:1080,height:1080,format:'RGB PNG',fps:30,seconds:10,trajectorySha256:hash(text),chromiumSha256:a.chromiumSha256,fleetTasks:3,modelsInvoked:0},null,2));
+});

@@ -19,6 +19,7 @@ test('real headless Three.js: all cameras, RGB 1080 PNG, pure out-of-order rende
    assert.equal(png.readUInt32BE(16),1080);assert.equal(png.readUInt32BE(20),1080);assert.equal(png[25],2);
   }
   assert.equal(a.networkExternal,0); assert.equal(a.watermark,'SIMULATION');
+  const failed=join(root,'failed-after-frame');await assert.rejects(capture({run:join(root,'run'),output:failed,times:[0],cameras:'multiview',progress:()=>{throw new Error('Injected capture failure');}}),/Injected capture failure/);await assert.rejects(stat(failed),{code:'ENOENT'});
  }finally{process.umask(previousUmask);await rm(root,{recursive:true,force:true});}
 });
 test('Studio page contract: read-only server, promise hook, metadata and no clock/random reads while drawing',async()=>{

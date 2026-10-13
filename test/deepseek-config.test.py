@@ -1,16 +1,21 @@
-"""Release regression: python3 test/deepseek-config.test.py (PyYAML 6.0.3)."""
+"""Release regression: python3 test/deepseek-config.test.py (PyYAML 6.x)."""
 import json
 import os
 from pathlib import Path
 import subprocess
 import unittest
+import tempfile
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 
 class DeepSeekConfig(unittest.TestCase):
     def test_cordis_profile_overlay(self):
-        connection = str(ROOT / "runs/private space 'quoted'/connection-amber.json")
+        temp = tempfile.TemporaryDirectory(prefix="sim config 'quoted' ")
+        self.addCleanup(temp.cleanup)
+        path = Path(temp.name) / "connection-amber.json"
+        path.write_text("{}")
+        connection = str(path)
         raw = subprocess.check_output([os.environ.get('SIM_NODE', 'node'), 'tools/mcp-config.mjs', '--client', 'deepseek', '--connection', connection], cwd=ROOT, text=True)
         overlay = yaml.safe_load(raw)
         self.assertIsInstance(overlay, list)

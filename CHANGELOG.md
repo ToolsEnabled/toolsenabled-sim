@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.5 — 2026-10-13
+
+- Ship Claude Code and Codex marketplace catalogs in this repository and the release ZIP, with public and verified local install commands.
+- Clarify that no Claude Desktop bundle is attached; it can be built separately and still needs native installation qualification.
+- Require an absolute existing connection file when generating MCP configurations; preserve the path without reading its capability.
+- Explain empty events pages for an unbound offline observer without exposing private actions.
+- Print one-line capture and artifact-verifier usage/errors, refuse missing capture option values, and remove only capture output freshly created by a failed attempt.
+- Document the existing Playwright-cache Chromium fallback, the Rapier compatibility loader's upstream notice beside the quick start, and PyYAML 6.x as a test prerequisite.
+- Preserve the pinned runtime dependencies and recorded physics bytes on both engines.
+
 ## 0.1.4 — 2026-10-12
 
 0.1.3 was an internal handoff and was never published; every change listed under it ships for the first time in this release.

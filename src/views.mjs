@@ -37,6 +37,10 @@ export function readView({root,sim,live,run,instanceId,online=true},identity,par
    if(!runNames(root).includes(selected))throw problem('Run is unavailable.');
    const saved=ends(join(root,selected,'trajectory.jsonl'));if(!visible(identity,saved.header))throw problem('Run is unavailable.',403);
    page=eventPage(root,selected,identity,q);
+   if(!page.rows.length){
+    if(!online&&identity.role==='observer')summary.push('No events are visible to an unbound offline observer on this page; set SIM_CONNECTION to a bound connection.');
+    else summary.push('No events are visible to this connection on this page.');
+   }
   }else if(view==='runs'){
    const names=runNames(root),stamps=names.map(n=>{const f=file(join(root,n,'trajectory.jsonl'));closeSync(f.fd);return [n,f.stamp,modeOf(root,n)];});
    const revision=digest([view,identity,run,stamps]);checkRevision(q,revision);

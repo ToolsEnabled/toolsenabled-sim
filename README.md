@@ -14,6 +14,14 @@ Use Node.js 22 or newer. The release ZIP needs no install: it already includes i
 npm ci --ignore-scripts --no-audit --no-fund
 ```
 
+For the release ZIP, download both files from [v0.1.5](https://github.com/ToolsEnabled/toolsenabled-sim/releases/tag/v0.1.5), then verify before extracting:
+
+```sh
+sha256sum -c toolsenabled-sim-0.1.5.zip.sha256
+unzip toolsenabled-sim-0.1.5.zip
+cd sim
+```
+
 Then run the demo on each engine and verify its recording:
 
 ```sh
@@ -22,6 +30,8 @@ node tools/replay.mjs ./runs/demo
 node tools/demo.mjs --output ./runs/demo-mujoco --engine mujoco
 node tools/replay.mjs ./runs/demo-mujoco
 ```
+
+The pinned Rapier 0.17.3 compatibility loader prints `using deprecated parameters for the initialization function; pass a single object instead` on stderr once per process. It is an upstream initialization notice; successful output and recorded physics bytes are unaffected. MuJoCo does not print it.
 
 The output directory must be new. No model, agent CLI, cloud service, browser or GPU is required for the simulation. `replay` verifies the complete hash chain, re-executes the action journal in fresh physics, and compares the trajectory bytes.
 
@@ -38,8 +48,10 @@ node src/hub-cli.mjs --root /absolute/private-sim-run
 It prints paths to private connection files. Keep this process running. Add `--engine mujoco` to run the shared world on MuJoCo; the default is `rapier`. The engine is fixed for the life of the hub: reset and scenario changes rebuild the world on the same engine, and no tool argument can change it. Give each MCP host only the connection for its assigned robot; keep the coordinator connection with the coordinator. All connections attach to this same world. Generate a client configuration without modifying your settings:
 
 ```sh
-node tools/mcp-config.mjs --client codex --connection ./runs/shared/connection-amber.json
+node tools/mcp-config.mjs --client codex --connection /absolute/private-run/connection-amber.json
 ```
+
+The connection path must be absolute and name an existing file created by the running hub. The helper checks the path without reading its private capability; ownership and connection contents are checked when the client starts.
 
 Supported configuration formats: `claude`, `codex`, `cursor`, `claude-desktop`, `deepseek`. The helper emits TOML for Codex, `mcpServers` JSON for Claude Code/Cursor/Claude Desktop, and a Cordis profile-overlay YAML patch for DeepSeek Harness. DeepSeek output contains an `@deepseek-ai/dsh-mcp-client` entry under `- insert:` with the stdio command, arguments, environment and tool timeout. Merge that patch into your DSH profile overlay; it is not an `mcpServers` configuration. Configuration generation and stdio transport are tested; a real model/client session is a separate integration qualification. Claude Code and Codex plugin manifests and the `toolsenabled-sim` workflow skill are included. Claude uses its `connection_file` option; Codex uses an inline server and an absolute `SIM_CONNECTION` in the host environment. The helper avoids plugin-root interpolation when registering directly.
 
@@ -47,14 +59,16 @@ The coordinator calls `sim.step` after collecting commands from the robots. A sl
 
 ## Claude plugin
 
-The `toolsenabled-sim` plugin connects to the shared hub using one agent’s private connection-file path. Install it at local project scope from a verified marketplace snapshot. This source ships no marketplace catalog; the snapshot's `toolsenabled-sim` entry points at the release archive published on [github.com/ToolsEnabled/toolsenabled-sim](https://github.com/ToolsEnabled/toolsenabled-sim/releases). Confirm the archive digest before adding the snapshot, then install from it:
+The `toolsenabled-sim` plugin connects to the shared hub using one agent’s private connection-file path. The repository is its own Claude Code and Codex marketplace. From a dedicated project for this robot:
 
 ```sh
-claude plugin marketplace add /absolute/verified-marketplace
-claude plugin install toolsenabled-sim@toolsenabled -s local --config connection_file=/absolute/private-sim-run/connection-amber.json
+claude plugin marketplace add ToolsEnabled/toolsenabled-sim
+claude plugin install toolsenabled-sim@toolsenabled-sim -s local --config connection_file=/absolute/private-sim-run/connection-amber.json
+codex plugin marketplace add ToolsEnabled/toolsenabled-sim
 ```
 
-See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. Provides a Claude Desktop bundle; native installation still needs qualification. POSIX ownership checks are required; native Windows is not supported in this release.
+For an offline Claude Code install from the verified ZIP, add its extracted `sim/` directory as a local marketplace and use the same plugin name. Git-backed installs need `npm ci --ignore-scripts --no-audit --no-fund` in the installed plugin directory before starting the MCP shim; the release ZIP already includes the dependencies. Set Codex's absolute `SIM_CONNECTION` in the host environment before starting it, then install Sim from the Plugins Directory.
+See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.5 release, and native installation still needs qualification. POSIX ownership checks are required; native Windows is not supported in this release.
 
 Sim has no dashboard or human-control link. The human starts the hub and finds connection-file paths in its launch terminal. Capture and replay are explicit human-run local commands. Agent file/shell tools running as the same user can read host logs and private connection files; project scope and skill guidance do not provide OS isolation.
 
@@ -70,7 +84,7 @@ Run `node tools/live.mjs --root /absolute/private-live-run --work-record /absolu
 
 ## Render offline
 
-Provide a portable Chromium binary and its runtime libraries. This package never downloads a browser or installs system packages. Physics does not depend on Chromium.
+Set `SIM_CHROMIUM_EXECUTABLE` to a portable Chromium binary with its runtime libraries. If unset, capture and the render tests use `playwright-core`'s cached Chromium path (`chromium.executablePath()`), which must already exist locally. This package never downloads a browser or installs system packages. Physics does not depend on Chromium.
 
 ```sh
 export SIM_CHROMIUM_EXECUTABLE=/path/to/chrome-headless-shell
@@ -106,7 +120,7 @@ The world is a planar rigid-body approximation: velocity-controlled wheeled robo
 
 Physics replay is byte-identical with the recorded engine's pinned package and the same action log on the tested Node/platform. Frame identity requires the same Chromium binary, SwiftShader runtime, platform and renderer; no cross-GPU or cross-browser guarantee is made. Render receipts record the browser version, executable SHA-256 and flags. The local tools do not isolate hostile processes running as the same operating-system user; see [SECURITY.md](SECURITY.md).
 
-Release validation also runs `python3 test/deepseek-config.test.py` with the offline PyYAML 6.0.3 test dependency. It parses the emitted DeepSeek YAML and verifies the Cordis overlay structure and exact connection arguments. PyYAML is only a test prerequisite; the plugin has no Python runtime dependency.
+Release validation also runs `python3 test/deepseek-config.test.py` with the offline PyYAML 6.x test dependency. It parses the emitted DeepSeek YAML and verifies the Cordis overlay structure and exact connection arguments. PyYAML is only a test prerequisite; the plugin has no Python runtime dependency.
 
 The optional Fleet release regression is `SIM_FLEET_ROOT=/path/to/fleet-source node --test test/fleet-proof.integration.mjs`; it runs a real isolated proof and checks every ledger event and completed record for actor `local`.
 

@@ -1,4 +1,6 @@
 [
+  ".agents/plugins/marketplace.json",
+  ".claude-plugin/marketplace.json",
   ".claude-plugin/plugin.json",
   ".codex-plugin/plugin.json",
   ".gitignore",
@@ -89,6 +91,7 @@
   "test/mujoco.test.mjs",
   "test/packaging-tools.test.py",
   "test/pane-env.test.mjs",
+  "test/patch.test.mjs",
   "test/physics-safety.test.mjs",
   "test/protocol-review.test.mjs",
   "test/release.test.mjs",

@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {mkdtemp,rm,readFile} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawn,execFileSync} from 'node:child_process';
+import {mkdtemp,rm,readFile,writeFile} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawn,execFileSync} from 'node:child_process';
 import {startHub} from '../src/hub.mjs';import {toolList} from '../src/schema.mjs';import {McpClient} from '../tools/mcp-client.mjs';
 const neverTools=['capture','record','upload','publish','exec','shell','pause','resume','undo','redo','export'];
 test('no capture/upload/human dashboard action exists on either MCP surface',()=>{
@@ -34,11 +34,12 @@ test('stdio malformed, pre-initialize, oversized and truncated frames are bounde
   }
  }finally{await hub.close();await rm(root,{recursive:true,force:true});}
 });
-test('all five configuration formats use explicit absolute executable, entry and private connection',()=>{
- for(const client of ['claude','codex','cursor','claude-desktop','deepseek']){
-  const out=execFileSync(process.execPath,['tools/mcp-config.mjs','--client',client,'--connection','runs/hub/connection-amber.json'],{encoding:'utf8'});
-  if(client==='codex'){assert.ok(out.startsWith('[mcp_servers.toolsenabled_sim]'));assert.ok(out.includes('SIM_CONNECTION = '));}else if(client==='deepseek'){assert.match(out,/^- insert:/);assert.match(out,/@deepseek-ai\/dsh-mcp-client/);assert.ok(out.includes(JSON.stringify(process.execPath)));}else{const c=JSON.parse(out).mcpServers.toolsenabled_sim;assert.equal(c.command,process.execPath);assert.equal(c.args.length,1);assert.ok(c.env.SIM_CONNECTION.endsWith('/runs/hub/connection-amber.json'));}
- }
+test('all five configuration formats use explicit absolute executable, entry and private connection',async()=>{
+ const temp=await mkdtemp(join(tmpdir(),'sim-config-')),connection=join(temp,'connection-amber.json');await writeFile(connection,'{}',{mode:0o600});
+ try{for(const client of ['claude','codex','cursor','claude-desktop','deepseek']){
+  const out=execFileSync(process.execPath,['tools/mcp-config.mjs','--client',client,'--connection',connection],{encoding:'utf8'});
+  if(client==='codex'){assert.ok(out.startsWith('[mcp_servers.toolsenabled_sim]'));assert.ok(out.includes('SIM_CONNECTION = '));}else if(client==='deepseek'){assert.match(out,/^- insert:/);assert.match(out,/@deepseek-ai\/dsh-mcp-client/);assert.ok(out.includes(JSON.stringify(process.execPath)));}else{const c=JSON.parse(out).mcpServers.toolsenabled_sim;assert.equal(c.command,process.execPath);assert.equal(c.args.length,1);assert.equal(c.env.SIM_CONNECTION,connection);}
+ }}finally{await rm(temp,{recursive:true,force:true});}
 });
 test('stdio request queue rejects bursts above its bounded capacity',async()=>{
  const root=await mkdtemp(join(tmpdir(),'sim-queue-'));const hub=await startHub({root});const c=new McpClient(hub.connections.amber);

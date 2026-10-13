@@ -50,7 +50,7 @@ Use interpolated robot poses at the requested time in these formulas to recover 
 
 ## Reproducibility envelope
 
-Production npm pins are `@dimforge/rapier3d-compat@0.17.3`, `@mujoco/mujoco@3.14.0`, `three@0.180.0`, and `playwright-core@1.62.0`. The Rapier compatibility package embeds WASM; its ESM file is imported explicitly because its package `main` has a CommonJS/ESM mismatch in Node 22. It emits one upstream initialization deprecation notice to stderr; this does not appear in MCP stdout or run bytes. The MuJoCo package is imported only when a hub or replay selects it; its loader reads the standalone `mujoco.wasm` beside it and emits no startup notice.
+Production npm pins are `@dimforge/rapier3d-compat@0.17.3`, `@mujoco/mujoco@3.14.0`, `three@0.180.0`, and `playwright-core@1.62.0`. The Rapier compatibility package embeds WASM; its ESM file is imported explicitly because its package `main` has a CommonJS/ESM mismatch in Node 22. Its zero-argument compatibility initializer internally uses the older WASM-loader call and emits one upstream initialization deprecation notice to stderr; this does not appear in MCP stdout or run bytes. The MuJoCo package is imported only when a hub or replay selects it; its loader reads the standalone `mujoco.wasm` beside it and emits no startup notice.
 
 `capture-receipt.json` records every frame hash, exact times, all camera names, source trajectory hash, executable SHA-256, browser version, platform, launch flags, renderer and camera calibration. Keep the browser's bundled SwiftShader libraries with the executable. Frame byte identity is tested for repeated independent browser launches on the same environment. It is not claimed across browser, driver, platform or renderer changes.
 

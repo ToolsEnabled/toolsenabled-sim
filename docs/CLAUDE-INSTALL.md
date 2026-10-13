@@ -21,25 +21,23 @@ All configured paths must be absolute. Empty, relative, `~` and drive-relative p
 
 ## Claude Code
 
-Use only a marketplace snapshot whose commit or packet SHA256 was supplied through the reviewed release handoff. Verify its SOURCE-PINS and every file hash, run its private-key scan, then add the verified absolute directory. Relative-source catalogs have no client-enforced per-entry digest; the external inventory check is required. For a published archive entry, confirm the exact release ZIP digest. Keep automatic catalog updates disabled until replacement bytes are reviewed. Do not substitute a moving marketplace URL or an unpublished tag for this verification.
-
-From a dedicated Git project root for this agent (a subdirectory within another repository shares that repository’s local scope):
+This repository includes `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`; each exposes this repository's root as `toolsenabled-sim`. From a dedicated Git project root for this agent (a subdirectory within another repository shares that repository's local scope):
 
 ```sh
-claude plugin marketplace add /absolute/verified-marketplace
-claude plugin install toolsenabled-sim@toolsenabled -s local --config connection_file=/absolute/private-sim-run/connection-amber.json
-claude plugin details toolsenabled-sim@toolsenabled
+claude plugin marketplace add ToolsEnabled/toolsenabled-sim
+claude plugin install toolsenabled-sim@toolsenabled-sim -s local --config connection_file=/absolute/private-sim-run/connection-amber.json
+claude plugin details toolsenabled-sim@toolsenabled-sim
 claude mcp list
 ```
 
-These commands require the verified catalog to contain the qualified Sim entry. This source does not ship a future public entry. The coordinator generates it from published source and final artifact hashes.
+A Git-backed install contains source. Before the shim starts, run `npm ci --ignore-scripts --no-audit --no-fund` from its installed plugin directory. For an offline install, download the release ZIP and its `.sha256` sidecar, verify with `sha256sum -c toolsenabled-sim-0.1.5.zip.sha256`, extract it, then run `claude plugin marketplace add /absolute/extracted/sim` and the same install command. That ZIP includes the pinned dependencies. Review updates before adopting them; a relative-source catalog is not a per-file cryptographic integrity check.
 
 `-s local` keeps registration in this project. The host can launch the shim at session startup and during `claude mcp list`; listing is not an inert configuration read. Distinct robots need distinct connection files and project configurations. A second host pointed at the same robot shares that identity and command limits; it is not an additional agent. Disconnecting a shim leaves the owning hub running. End the client normally, then stop the hub with SIGINT/SIGTERM/SIGHUP after all clients finish.
 
-The non-secret path option is stored by Claude Code under `pluginConfigs["toolsenabled-sim@toolsenabled"].options.connection_file`. It is passed through `SIM_CONNECTION`, never as a command-line argument. The capability itself stays in the external file. Do not paste the file's contents into settings or prompts. For private per-project option overrides, use an absolute machine-local `--settings` file; do not commit it:
+The non-secret path option is stored by Claude Code under `pluginConfigs["toolsenabled-sim@toolsenabled-sim"].options.connection_file`. It is passed through `SIM_CONNECTION`, never as a command-line argument. The capability itself stays in the external file. Do not paste the file's contents into settings or prompts. For private per-project option overrides, use an absolute machine-local `--settings` file; do not commit it:
 
 ```json
-{"pluginConfigs":{"toolsenabled-sim@toolsenabled":{"options":{"connection_file":"/absolute/private-sim-run/connection-amber.json"}}}}
+{"pluginConfigs":{"toolsenabled-sim@toolsenabled-sim":{"options":{"connection_file":"/absolute/private-sim-run/connection-amber.json"}}}}
 ```
 
 Use `/sim help` for local panes and exact action names; `/toolsenabled-sim:deliver` requests delivery. The optional absolute `run_root` option anchors retained views after clean shutdown deletes connection files. It is used only by the read-only view child, which explicitly receives `SIM_CONNECTION` and `SIM_RUN_ROOT`. See [COMMANDS.md](COMMANDS.md) for every pane, action and Codex equivalent. Invoke `/toolsenabled-sim:toolsenabled-sim` with a general delivery task. The skill reads status/observation, uses the current round, submits, and verifies delivery. Restrict the agent to the intended Sim tools where practical. The live coordinator cannot drive robots. Driver labels must name the actual client; a script is a scripted driver. A successful install or tool handshake is not a successful model-driven delivery.
@@ -54,13 +52,15 @@ For connection recovery, stop the affected client normally, check its absolute f
 
 ## Codex
 
+Add the repository marketplace with `codex plugin marketplace add ToolsEnabled/toolsenabled-sim`, then install ToolsEnabled Sim from the Plugins Directory. The verified ZIP can also be registered with `codex plugin marketplace add /absolute/extracted/sim`. Git-backed installs need the dependency install above; the ZIP includes them.
+
 The `.codex-plugin/plugin.json` uses an inline server with `args:["./src/mcp.mjs"]` and `cwd:"./"`, plus `env_vars:["SIM_CONNECTION"]` to forward the host’s connection path into the MCP subprocess. The tested Codex loader resolves that cwd to the installed plugin root. Set `SIM_CONNECTION` to the absolute private file in the host environment before launching Codex, or use the existing print-only `tools/mcp-config.mjs --client codex --connection /absolute/file` helper for direct registration. Codex does not consume Claude's `user_config`. The inline server uses the same name as the root Claude `.mcp.json` so it overrides that configuration. Root substitution strings are not supported in the tested legacy Codex MCP argv.
 
 The stdio server reads one application environment variable at startup: `SIM_CONNECTION`. It is required, has no default, and missing or empty values fail before reading state. Claude and Desktop explicitly map their required `connection_file` option into this variable; Codex explicitly forwards it. The MCP shim has no optional startup variables, interpreter selectors, or workspace defaults. The separate view CLI also reads optional `SIM_RUN_ROOT`; Claude forwards it from `run_root`, while Codex users may set it or pass `--root` explicitly. The client needs its normal OS prerequisites (`HOME`, `PATH` and a writable temporary directory); `node` must be on `PATH`. Runtime state and robot identity come exclusively from the selected private connection file. Qualification under packaging revision 2.1 uses fresh client configuration and a scrubbed environment, verifies that the selected robot capability reached the intended hub, and proves startup fails when Codex's forwarding declaration is removed.
 
 ## Desktop bundle and release metadata
 
-Provides a Claude Desktop bundle; native installation still needs qualification. The bundle requires Node 22+ and POSIX ownership support. Its manifest restricts native installation to macOS; Windows support needs a separate ownership implementation and qualification. Headless Linux MCP tests do not establish native Desktop acceptance, and including SKILL.md does not establish Desktop skill loading. Local MCP servers are not available in claude.ai chat.
+A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.5 release, and native installation still needs qualification. The bundle requires Node 22+ and POSIX ownership support. Its manifest restricts native installation to macOS; Windows support needs a separate ownership implementation and qualification. Headless Linux MCP tests do not establish native Desktop acceptance, and including SKILL.md does not establish Desktop skill loading. Local MCP servers are not available in claude.ai chat.
 
 The human imports only the reviewed bundle and supplies the absolute private connection-file path. During future native qualification, confirm shim stderr in `~/Library/Logs/Claude/mcp-server-<server-name>.log` and `mcp.log`. No one-time dashboard link is expected. A development signature proves neither trusted publisher identity nor native installation support.
 
@@ -69,14 +69,14 @@ Unsigned bundles are built twice with pinned mcpb 2.1.2, fixed build time and no
 Build from a clean committed checkout with the reviewed offline dependencies already present:
 
 ```sh
-node tools/package.mjs /outside/toolsenabled-sim-0.1.4.zip
-python3 tools/package-mcpb.py --mcpb-cli /absolute/pinned-mcpb-2.1.2/dist/cli/cli.js --output /outside/toolsenabled-sim-0.1.4.mcpb
+node tools/package.mjs /outside/toolsenabled-sim-0.1.5.zip
+python3 tools/package-mcpb.py --mcpb-cli /absolute/pinned-mcpb-2.1.2/dist/cli/cli.js --output /outside/toolsenabled-sim-0.1.5.mcpb
 python3 test/packaging-tools.test.py
 ```
 
 Build again to different output paths and compare bytes. Both packagers require a clean committed checkout and share the source and per-dependency file allowlists. They validate installed names and versions against package-lock.json and every selected file against its reviewed SHA256; receipts report the versions actually packed. Vendored files are limited to traced runtime code, resolver metadata and legal notices; THIRD-PARTY.md lists every shipped dependency file. Transfer handoffs only through `tools/handoff.py copy SOURCE NEW_DESTINATION` after constructing SHA256SUMS, then use `verify` on receipt. The scanner checks unlisted files, archive members and reachable Git bundle blobs; caches, scratch state and signer directories stay outside every packet.
 
-`server.json` is generated outside the product only after the coordinator publishes the qualified source and signed bytes. The release generator requires the handoff’s full `--expected-tree` ID, checks the pushed tag/commit and downloaded artifacts, and verifies every ZIP member against that tree and its dependency hash inventory. The ZIP must have one `sim/` wrapper and the matching plugin identity/version; the signed mcpb must contain exactly the same member bytes. No Registry sidecar, development digest or future public marketplace entry belongs in this source or the plugin archives.
+`server.json` is generated outside the product only after the coordinator publishes the qualified source and signed bytes. The release generator requires the handoff’s full `--expected-tree` ID, checks the pushed tag/commit and downloaded artifacts, and verifies every ZIP member against that tree and its dependency hash inventory. The ZIP must have one `sim/` wrapper and the matching plugin identity/version; the signed mcpb must contain exactly the same member bytes. Registry sidecars and development signing digests remain outside this source and the plugin archives; the repository marketplace catalogs ship with the source and ZIP.
 
 For Registry generation, pass `--description 'Control warehouse robots offline with shared MCP tools, delivery guidance and exact replay.'`. This complete listing text is used verbatim. Descriptions outside 1–100 characters are refused; the generator never truncates public wording.
 
