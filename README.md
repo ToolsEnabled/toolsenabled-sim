@@ -152,7 +152,7 @@ Run `node tools/live.mjs --root /absolute/private-live-run --work-record /absolu
 
 ## Render offline
 
-Set `SIM_CHROMIUM_EXECUTABLE` to the real browser binary with its runtime libraries, for example `/opt/google/chrome/chrome` or a `chrome-headless-shell` binary, not a wrapper script such as `/usr/bin/google-chrome`: the replay test runs the printed capture command with only Node's directory on `PATH`, where a wrapper script fails before the browser starts (Playwright then reports only that the browser was closed). If unset, capture and the render tests use `playwright-core`'s cached Chromium path (`chromium.executablePath()`), which must already exist locally. This package never downloads a browser or installs system packages. Physics does not depend on Chromium.
+Set `SIM_CHROMIUM_EXECUTABLE` to the real browser binary with its runtime libraries, for example `/opt/google/chrome/chrome` or a `chrome-headless-shell` binary, not a wrapper script such as `/usr/bin/google-chrome`: the capture receipt records the browser's SHA-256 as part of frame identity, so capture follows a link to the file it names and refuses a script with `SIM_CHROMIUM_EXECUTABLE names a script, <path>, not the browser binary`. If unset, capture and the render tests use `playwright-core`'s cached Chromium path (`chromium.executablePath()`), which must already exist locally. This package never downloads a browser or installs system packages. Physics does not depend on Chromium.
 
 ```sh
 export SIM_CHROMIUM_EXECUTABLE=/path/to/chrome-headless-shell

@@ -4,7 +4,7 @@ import {isAbsolute} from 'node:path';
 const path=process.env.SIM_CONNECTION;
 if(!path||!isAbsolute(path)){process.stderr.write('SIM_CONNECTION must be an absolute path to a private connection file created by the sim hub.\n');process.exit(1);}
 let config;
-try{config=JSON.parse(readConnection(path));const u=new URL(config.url);if(u.hostname!=='127.0.0.1'||u.protocol!=='http:'||u.pathname!=='/'||u.username||u.password||u.search||u.hash||!Number.isInteger(Number(u.port))||!/^[a-f0-9]{64}$/.test(config.token))throw new Error('Invalid connection');}catch(error){process.stderr.write(error?.code==='ENOENT'?`SIM_CONNECTION file not found: ${path}. A hub removes its connection files when it stops, so start the hub again and configure this plugin with the new connection file it prints.\n`:'Invalid SIM_CONNECTION file.\n');process.exit(1);}
+try{config=JSON.parse(readConnection(path));const u=new URL(config.url);if(u.hostname!=='127.0.0.1'||u.protocol!=='http:'||u.pathname!=='/'||u.username||u.password||u.search||u.hash||!Number.isInteger(Number(u.port))||!/^[a-f0-9]{64}$/.test(config.token))throw new Error('Invalid connection');}catch(error){process.stderr.write(error?.code==='ENOENT'?`SIM_CONNECTION file not found: ${path}. A hub removes its connection files when it stops, so start it again. With the same --root it writes this same file again and nothing needs reconfiguring; with a new --root, configure this plugin with the new connection file it prints.\n`:'Invalid SIM_CONNECTION file.\n');process.exit(1);}
 let initialized=false,buffer='',pending=Promise.resolve(),queued=0,drainExpired=false;
 const drain=new AbortController();
 const send=x=>process.stdout.write(JSON.stringify(x)+'\n');

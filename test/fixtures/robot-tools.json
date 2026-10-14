@@ -79,7 +79,7 @@
   {
     "name": "robot.goto",
     "title": "Move robot to waypoint",
-    "description": "Follow an obstacle-aware path to an arena coordinate at up to 1.5 m/s.",
+    "description": "Follow an obstacle-aware path to an arena coordinate at up to 1.5 m/s. The robot stops at the coordinate; a held crate rides 0.75 m ahead of it, so to deliver, send the robot to deliveryAreas[].robotStops, not to the zone center.",
     "inputSchema": {
       "type": "object",
       "properties": {

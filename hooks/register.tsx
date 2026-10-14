@@ -96,7 +96,7 @@ export const register: Register = (on,options) => {
   return next(e)
  })
  on('session.end',async($,e,next)=>{clear();return next(e)})
- on('ui.close',{id:PANE},async($,e,next)=>{clear();return next(e)})
+ on('ui.close',{id:PANE},async($,e,next)=>{clear();return next(e)}).catch(($,e,next)=>next(e))
  on('command.run',{command:'sim'},async($,e,next)=>{
   if(collision)return next(e)
   const command=commandInput(e.args);if(!command)return {text:usage}
@@ -108,7 +108,7 @@ export const register: Register = (on,options) => {
   await load($,connection,root)
   // Runtime data stays in the pane and never becomes a model context message.
   return {text:'Sim pane opened.'}
- })
+ }).catch(($,e,next)=>next.called?next(e):{text:'Sim pane unavailable. Run /sim again to retry.'})
  on('ui.render',{component:'Pane',requestId:PANE},async($,e)=>{
   const {Box,Text,Button}=$.ui.resolve(e),current=page,chosen=detail
   if(!opened)return <Text>Sim pane closed.</Text>

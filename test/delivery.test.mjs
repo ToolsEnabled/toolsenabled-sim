@@ -44,6 +44,8 @@ test('the advertised robot stop point delivers cargo-a to zone A; the zone cente
  assert.equal(center.delivered,0,JSON.stringify(center));assert.ok(center.crateX>area.centerBounds.maxX,JSON.stringify(center));
 });
 test('tool descriptions teach the complete delivery rule in manual and live catalogs',()=>{
+ // fresh-user-7 Sim #6: robot.goto, the call where a crate was carried past its zone, now says where the robot stops.
+ for(const live of [false,true]){const goto=toolList('robot',{live}).find(t=>t.name==='robot.goto');assert.match(goto.description,/The robot stops at the coordinate; a held crate rides 0\.75 m ahead of it, so to deliver, send the robot to deliveryAreas\[\]\.robotStops, not to the zone center\./);}
  for(const live of [false,true])for(const name of ['sim.observe','sim.status','robot.release']){
   const tool=toolList('robot',{live}).find(t=>t.name===name);assert.match(tool.description,/released.*fully inside/i);assert.match(tool.description,/width\/2 - 0\.3/);assert.match(tool.description,/depth\/2 - 0\.3/);assert.match(tool.description,/0\.75 m ahead/);
  }

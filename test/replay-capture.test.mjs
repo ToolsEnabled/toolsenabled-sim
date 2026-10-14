@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,rm,writeFile,symlink,realpath} from 'node:fs/promises';
 import {join,resolve,dirname} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawn,spawnSync} from 'node:child_process';
@@ -13,6 +13,19 @@ const cli=resolve('tools/sim-view.mjs');
 const run=(args,env={},input='')=>new Promise(resolve=>{const p=spawn(process.execPath,[cli,...args,'--json'],{env,stdio:['pipe','pipe','pipe']});let out='',err='';p.stdout.on('data',b=>out+=b);p.stderr.on('data',b=>err+=b);p.on('close',code=>{let body;try{body=JSON.parse(out);}catch{}resolve({code,body,out,err});});p.stdin.end(input);});
 const step=async(hub,n)=>{const c=new McpClient(hub.connections.coordinator);try{await c.initialize();return await c.call('sim.step',{n});}finally{await c.close();}};
 async function setup(live=false){const root=await mkdtemp(join(tmpdir(),'sim-audit-view-'));const hub=await startHub({root,...(live?{live:{budgetMs:120000}}:{})});return {root,hub,env:role=>({SIM_CONNECTION:hub.connections[role],SIM_RUN_ROOT:root}),async close(){await hub.close();await rm(root,{recursive:true,force:true});}};}
+// fresh-user-7 Sim #1: SIM_CHROMIUM_EXECUTABLE=/usr/bin/google-chrome, a link to a bash script, captured frames whose receipt
+// recorded the script's SHA-256 as the browser's. Capture resolves the executable and refuses a script before launching it.
+test('capture refuses a wrapper script as SIM_CHROMIUM_EXECUTABLE and resolves a link to the real binary',async()=>{
+ const real=await realpath(await offlineChromium()),saved=process.env.SIM_CHROMIUM_EXECUTABLE;
+ const temp=await mkdtemp(join(tmpdir(),'sim-chromium-'));
+ try{
+  const script=join(temp,'google-chrome'),scriptLink=join(temp,'usr-bin-google-chrome'),link=join(temp,'chrome-link');
+  await writeFile(script,`#!/bin/sh\nexec '${real}' "$@"\n`,{mode:0o755});await symlink(script,scriptLink);await symlink(real,link);
+  const refusal=path=>new RegExp('^Error: SIM_CHROMIUM_EXECUTABLE names a script, '+path.replace(/[.*+?^${}()|[\]\\/]/g,'\\$&')+', not the browser binary: capture records the browser\'s SHA-256 for frame identity, so set SIM_CHROMIUM_EXECUTABLE to the real binary, for example /opt/google/chrome/chrome\\.$');
+  for(const given of [script,scriptLink]){process.env.SIM_CHROMIUM_EXECUTABLE=given;await assert.rejects(offlineChromium(),refusal(await realpath(script)),given);}
+  process.env.SIM_CHROMIUM_EXECUTABLE=link;assert.equal(await offlineChromium(),real);
+ }finally{if(saved===undefined)delete process.env.SIM_CHROMIUM_EXECUTABLE;else process.env.SIM_CHROMIUM_EXECUTABLE=saved;await rm(temp,{recursive:true,force:true});}
+});
 // 0.1.8 product review, Sim #2: the printed capture command had no --seconds, so capture's 10 s default failed for
 // every run under 598 ticks (and every just-reset run) and covered only the first 10 s of longer runs.
 test('replay prints a capture command that covers the whole recorded run and works exactly as printed',async()=>{

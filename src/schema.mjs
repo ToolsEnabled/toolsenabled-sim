@@ -1,4 +1,4 @@
-import {deliveryRule} from './delivery.mjs';
+import {deliveryRule,carryOffset} from './delivery.mjs';
 const workId={type:'string',pattern:'^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$',minLength:1,maxLength:128};
 export const id={type:'string',pattern:'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$',minLength:1,maxLength:48};
 export const num=(minimum,maximum)=>({type:'number',minimum,maximum});
@@ -47,7 +47,7 @@ const command=properties=>obj({...properties,round},Object.keys(properties));
 const specs=[
  ['sim.observe',`Observe the owned robot pose, nearby objects, contacts, ASCII map and deliveryAreas with crate-center bounds. ${deliveryRule}`,obj(robot),false],
  ['robot.drive','Set differential drive velocity for a bounded number of simulation seconds.',command({...robot,v:num(-2,2),w:num(-Math.PI,Math.PI),duration:num(1/60,5)}),false],
- ['robot.goto','Follow an obstacle-aware path to an arena coordinate at up to 1.5 m/s.',command({...robot,x:num(-30,30),y:num(-30,30)}),false],
+ ['robot.goto',`Follow an obstacle-aware path to an arena coordinate at up to 1.5 m/s. The robot stops at the coordinate; a held crate rides ${carryOffset} m ahead of it, so to deliver, send the robot to deliveryAreas[].robotStops, not to the zone center.`,command({...robot,x:num(-30,30),y:num(-30,30)}),false],
  ['robot.grab','Attach an assigned crate within 0.85 m of the robot front.',command({...robot,crateId:id}),false],
  ['robot.release',`Release the held crate. ${deliveryRule}`,command(robot),false],
  ['robot.submit','Live mode: finish commands for this round; the launcher steps when every active robot submits or its wall-clock budget expires.',obj({...robot,round}),false,true],

@@ -1,5 +1,5 @@
 import {serveReplay} from '../src/replay-server.mjs';
-import {readFile,mkdir,writeFile,stat,rm} from 'node:fs/promises';
+import {readFile,mkdir,writeFile,stat,rm,realpath,open} from 'node:fs/promises';
 import {createReadStream} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {resolve,join} from 'node:path';
@@ -9,9 +9,13 @@ import {verifyTrajectory,hash} from '../src/sim.mjs';
 import {runCli,cliOption} from '../src/cli-lifecycle.mjs';
 async function fileHash(path){const h=createHash('sha256');for await(const b of createReadStream(path))h.update(b);return h.digest('hex');}
 // The one browser check: SIM_CHROMIUM_EXECUTABLE, else an already present Playwright-cache Chromium. Nothing is downloaded.
+// The receipt's chromiumSha256 identifies the browser that drew the frames, so it must hash the browser itself: a link is
+// followed to the file it names, and a wrapper script (such as /usr/bin/google-chrome) is refused before anything launches.
 export async function offlineChromium(){
- const executablePath=process.env.SIM_CHROMIUM_EXECUTABLE||chromium.executablePath();
- try{await stat(executablePath);}catch{throw new Error('Offline Chromium missing. Set SIM_CHROMIUM_EXECUTABLE to your supplied headless Chromium binary. No browser is downloaded.');}
+ let executablePath,info;
+ try{executablePath=await realpath(process.env.SIM_CHROMIUM_EXECUTABLE||chromium.executablePath());info=await stat(executablePath);}catch{throw new Error('Offline Chromium missing. Set SIM_CHROMIUM_EXECUTABLE to your supplied headless Chromium binary. No browser is downloaded.');}
+ if(info.isFile()){const head=Buffer.alloc(2),file=await open(executablePath,'r');try{await file.read(head,0,2,0);}finally{await file.close();}
+  if(head.toString('latin1')==='#!')throw new Error(`SIM_CHROMIUM_EXECUTABLE names a script, ${executablePath}, not the browser binary: capture records the browser's SHA-256 for frame identity, so set SIM_CHROMIUM_EXECUTABLE to the real binary, for example /opt/google/chrome/chrome.`);}
  return executablePath;
 }
 export async function capture({run,output,times,cameras='all',seconds=10,verifyAgainst,progress=()=>{}}){

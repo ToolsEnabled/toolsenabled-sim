@@ -31,5 +31,9 @@ test('demo, replay and configuration helpers report usage, engine and file error
   // fresh-user-6 Sim #4: a wrong path printed a raw ENOENT. Replay names what it needs: a run directory with trajectory.jsonl.
   oneLine(run('tools/replay.mjs',join(temp,'missing')),/^Replay needs a run directory containing trajectory\.jsonl and actions\.jsonl, such as \.\/runs\/demo or a hub's run-NNNN folder: .*\/missing\/trajectory\.jsonl does not exist$/,'replay missing');
   await mkdir(join(temp,'runs'));await mkdir(join(temp,'runs','demo'));oneLine(run('tools/replay.mjs',join(temp,'runs')),/^Replay needs a run directory .*\/runs\/trajectory\.jsonl does not exist$/,'replay parent of a run');assert.doesNotMatch(run('tools/replay.mjs',join(temp,'runs')).stderr,/ENOENT/);
+  // fresh-user-7 Sim #2: a file path printed a raw ENOTDIR, and --help was taken for a run path.
+  await writeFile(join(temp,'README.md'),'not a run');oneLine(run('tools/replay.mjs',join(temp,'README.md')),/^Replay needs a run directory containing trajectory\.jsonl and actions\.jsonl, such as \.\/runs\/demo or a hub's run-NNNN folder: .*\/README\.md is not a directory$/,'replay file path');
+  assert.doesNotMatch(run('tools/replay.mjs',join(temp,'README.md')).stderr,/ENOTDIR/);
+  for(const flag of ['--help','-h']){const help=run('tools/replay.mjs',flag);assert.equal(help.status,0,help.stderr);assert.equal(help.stderr,'');assert.match(help.stdout,/^Usage: node tools\/replay\.mjs \[RUN_DIR\]\n/);assert.match(help.stdout,/\.\/runs\/demo when RUN_DIR is left out/);}
  }finally{await rm(temp,{recursive:true,force:true});}
 });

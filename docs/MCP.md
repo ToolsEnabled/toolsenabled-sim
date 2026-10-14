@@ -8,7 +8,7 @@ Each successful call contains text JSON and `structuredContent.result`. Tool fai
 | --- | --- | --- | --- |
 | `sim.observe` | Robot/coord | `robotId` | Owned robot pose, agent/task/ledger IDs, assigned `crateId` and `zoneId`, nearby objects within 4 m, all labeled zones, `deliveryRule`, `deliveryAreas`, contacts and 33×13 ASCII map. |
 | `robot.drive` | Robot/coord | `robotId, v, w, duration` | Linear speed −2…2 m/s, yaw speed −π…π rad/s, duration 1/60…5 s. Runs when shared time advances. |
-| `robot.goto` | Robot/coord | `robotId, x, y` | Plan a bounded obstacle-aware path. Max 1.5 m/s and 2.5 rad/s; expires after 1200 ticks (20 s). Failure to reach a target is visible in subsequent poses. |
+| `robot.goto` | Robot/coord | `robotId, x, y` | Plan a bounded obstacle-aware path. Max 1.5 m/s and 2.5 rad/s; expires after 1200 ticks (20 s). Failure to reach a target is visible in subsequent poses. The robot stops at the coordinate and a held crate rides 0.75 m ahead of it, so to deliver, send the robot to `deliveryAreas[].robotStops`, not to the zone center. |
 | `robot.grab` | Robot/coord | `robotId, crateId` | Assigned, unheld crate within 0.85 m and ±0.4 rad in front. Attach rigidly (a Rapier fixed joint or a MuJoCo weld) and stop current motion. |
 | `robot.release` | Robot/coord | `robotId` | Detach the held crate and set its velocity to zero. Delivery requires the whole crate inside its destination zone. |
 | `robot.submit` | Owned robot only, live only | `robotId, round` | Finish this robot’s batch; commit when all active robots have submitted. |

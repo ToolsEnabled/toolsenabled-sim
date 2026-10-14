@@ -12,7 +12,9 @@ const json=async path=>JSON.parse(await readFile(join(root,path),'utf8'));
 test('Claude and Desktop use one absolute connection-file option in env; Codex uses its own inline server',async()=>{
  const plugin=await json('.claude-plugin/plugin.json'),desktop=await json('manifest.json'),claude=await json('.mcp.json'),codex=await json('.codex-plugin/plugin.json');
  assert.equal(plugin.name,'toolsenabled-sim');assert.equal(desktop.name,plugin.name);assert.equal(codex.name,plugin.name);
- for(const metadata of [plugin,desktop]){assert.equal(metadata.version,'0.1.11');assert.match((metadata.userConfig||metadata.user_config).connection_file.description,/^Absolute path/);}
+ for(const metadata of [plugin,desktop]){assert.equal(metadata.version,'0.1.11');assert.match((metadata.userConfig||metadata.user_config).connection_file.description,/^Absolute path/);
+  // fresh-user-7 Sim #4: the title said "robot" while the README's Try it installs the coordinator's file.
+  assert.equal((metadata.userConfig||metadata.user_config).connection_file.title,'Connection file (robot or coordinator)');}
  assert.deepEqual(claude.mcpServers.toolsenabled_sim,{command:'node',args:['${CLAUDE_PLUGIN_ROOT}/src/mcp.mjs'],env:{SIM_CONNECTION:'${user_config.connection_file}'}});
  assert.deepEqual(desktop.server.mcp_config,{command:'node',args:['${__dirname}/src/mcp.mjs'],env:{SIM_CONNECTION:'${user_config.connection_file}'}});
  assert.deepEqual(codex.mcpServers,{toolsenabled_sim:{command:'node',args:['./src/mcp.mjs'],cwd:'./',env_vars:['SIM_CONNECTION']}});
@@ -30,9 +32,11 @@ test('after the hub stops, the MCP shim names the missing connection file and sa
   const input=JSON.stringify({jsonrpc:'2.0',id:1,method:'initialize',params:{}})+'\n';
   const gone=spawnSync(process.execPath,[join(root,'src/mcp.mjs')],{env:{...process.env,SIM_CONNECTION:file},input,encoding:'utf8',timeout:5000});
   assert.equal(gone.status,1);assert.equal(gone.stdout,'');assert.equal(gone.stderr.trim().split('\n').length,1,gone.stderr);
-  assert.match(gone.stderr,/^SIM_CONNECTION file not found: /);assert.ok(gone.stderr.includes(file),gone.stderr);assert.match(gone.stderr,/hub removes its connection files when it stops.*start the hub again.*new connection file/);
+  assert.match(gone.stderr,/^SIM_CONNECTION file not found: /);assert.ok(gone.stderr.includes(file),gone.stderr);// fresh-user-7 Sim #5: a restart with the same --root writes the same file again, so the advice says when to reconfigure.
+  assert.ok(gone.stderr.endsWith(`${file}. A hub removes its connection files when it stops, so start it again. With the same --root it writes this same file again and nothing needs reconfiguring; with a new --root, configure this plugin with the new connection file it prints.\n`),gone.stderr);
+  const again=await startHub({root:temp});try{assert.equal(again.connections.coordinator,file);}finally{await again.close();}
   const missingRoot=spawnSync(process.execPath,[join(root,'src/mcp.mjs')],{env:{...process.env,SIM_CONNECTION:join(temp,'gone','connection-amber.json')},input,encoding:'utf8',timeout:5000});
-  assert.equal(missingRoot.status,1);assert.match(missingRoot.stderr,/^SIM_CONNECTION file not found: .*start the hub again/);
+  assert.equal(missingRoot.status,1);assert.match(missingRoot.stderr,/^SIM_CONNECTION file not found: .*start it again\. With the same --root/);
   const {writeFile,mkdir}=await import('node:fs/promises');await mkdir(join(temp,'bad'),{mode:0o700});await writeFile(join(temp,'bad','connection.json'),'not json',{mode:0o600});
   const invalid=spawnSync(process.execPath,[join(root,'src/mcp.mjs')],{env:{...process.env,SIM_CONNECTION:join(temp,'bad','connection.json')},input,encoding:'utf8',timeout:5000});
   assert.equal(invalid.status,1);assert.equal(invalid.stderr,'Invalid SIM_CONNECTION file.\n');

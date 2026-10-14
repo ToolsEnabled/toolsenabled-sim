@@ -47,6 +47,11 @@ test('row details stay local and paging keeps the revision',{options},async($,on
  expect(w.processes[1].argv).toContain('--revision');expect(w.processes[1].argv).toContain('a'.repeat(64));expect(w.processes[1].argv).toContain('10')
  expect(w.prompts.length).toBe(0)
 })
+// fresh-user-7 Sim #8: /sim and the pane's ui.close were gating hooks without .catch; a failing /sim hook now answers itself.
+test('a /sim hook that fails answers with fixed text and never reaches a native command',{options},async($,on)=>{
+ const w=world(on);w.failUi();await start($);const result=await command($,'status')
+ expect(result.text).toBe('Sim pane unavailable. Run /sim again to retry.');expect(w.native.length).toBe(0);expect(w.prompts.length).toBe(0)
+})
 test('errors are plain, retry is explicit and close clears the old data',{options},async($,on)=>{
  const w=world(on);w.setFailure('Error at /private/secret-path\nstack');await start($);await command($,'status');const ui=await pane($)
  const drawn=JSON.stringify(await ui.drawn());expect(drawn).toContain('unavailable');expect(drawn.includes('secret-path')).toBe(false)

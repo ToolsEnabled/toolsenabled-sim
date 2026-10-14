@@ -36,7 +36,7 @@
   "user_config": {
     "connection_file": {
       "type": "file",
-      "title": "Assigned robot connection file",
+      "title": "Connection file (robot or coordinator)",
       "description": "Absolute path to the private connection file created by the running Sim hub for this agent. Keep the hub outside the plugin cache.",
       "required": true
     }
