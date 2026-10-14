@@ -12,7 +12,7 @@ const json=async path=>JSON.parse(await readFile(join(root,path),'utf8'));
 test('Claude and Desktop use one absolute connection-file option in env; Codex uses its own inline server',async()=>{
  const plugin=await json('.claude-plugin/plugin.json'),desktop=await json('manifest.json'),claude=await json('.mcp.json'),codex=await json('.codex-plugin/plugin.json');
  assert.equal(plugin.name,'toolsenabled-sim');assert.equal(desktop.name,plugin.name);assert.equal(codex.name,plugin.name);
- for(const metadata of [plugin,desktop]){assert.equal(metadata.version,'0.1.10');assert.match((metadata.userConfig||metadata.user_config).connection_file.description,/^Absolute path/);}
+ for(const metadata of [plugin,desktop]){assert.equal(metadata.version,'0.1.11');assert.match((metadata.userConfig||metadata.user_config).connection_file.description,/^Absolute path/);}
  assert.deepEqual(claude.mcpServers.toolsenabled_sim,{command:'node',args:['${CLAUDE_PLUGIN_ROOT}/src/mcp.mjs'],env:{SIM_CONNECTION:'${user_config.connection_file}'}});
  assert.deepEqual(desktop.server.mcp_config,{command:'node',args:['${__dirname}/src/mcp.mjs'],env:{SIM_CONNECTION:'${user_config.connection_file}'}});
  assert.deepEqual(codex.mcpServers,{toolsenabled_sim:{command:'node',args:['./src/mcp.mjs'],cwd:'./',env_vars:['SIM_CONNECTION']}});

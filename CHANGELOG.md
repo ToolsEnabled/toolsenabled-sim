@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.11 — 2026-10-13
+
+Fixes from the 2026-10-13 fresh-user re-test of 0.1.10. Physics, recorded trajectory bytes, the tool names, schemas and hints, the Claude Code mod and the dependencies are unchanged:
+
+- `deliveryRule`, returned by `sim.status` and `sim.observe` and carried by the `sim.observe`, `sim.status` and `robot.release` tool descriptions, no longer says "Aim for the zone center". `robot.goto` moves the robot, and a held crate rides 0.75 m ahead of it, so a coordinator who sent amber to zone A's center (5, -3.5) released the crate at x=5.72, outside the delivery area, and delivered nothing. The rule now says to stop the robot 0.75 m short of the zone center, and every `deliveryAreas` entry gains `carryOffset` (0.75) and `robotStops`, the robot waypoint for a robot arriving facing east, west, south or north (zone A, arriving facing east: x 4.25, y -3.5). The `/sim map` pane shows each zone's facing-east stop. README "Try it" prompt 2, docs/MCP.md, docs/LIVE.md, the skill and the deliver command say the same. The golden tool-list fixtures carry the new description.
+- `node tools/replay.mjs` on a path that is not a run directory says what it needs, a run directory containing `trajectory.jsonl` and `actions.jsonl` such as `./runs/demo` or a hub's `run-NNNN` folder, and which file is missing, instead of a raw ENOENT.
+- README "Render offline" says to set `SIM_CHROMIUM_EXECUTABLE` to the real browser binary, for example `/opt/google/chrome/chrome` or a `chrome-headless-shell` binary, not a wrapper script such as `/usr/bin/google-chrome`: the replay test runs the printed capture command with only Node's directory on `PATH`, where a wrapper script fails before the browser starts.
+- The live launcher's refusal of a work record without `driverLabel` says to add the field to each assignment and points at the example in docs/LIVE.md. README says the demo's `work-record.json` has none, so it needs the field before `tools/live.mjs` accepts it.
+- The MCP shim, pointed at a connection file that no longer exists, names the file and says that a stopped hub removes its connection files, so the hub must be started again and the plugin configured with the new file. Every other refusal keeps its one-line "Invalid SIM_CONNECTION file." message.
+- Tests: 132 Node tests (129 in 0.1.10): the advertised robot stop delivers cargo-a and the zone center does not, the shim's message after a hub shutdown, and the launcher's refusal; the replay path test and the delivery-rule tests check the new messages.
+
 ## 0.1.10 — 2026-10-13
 
 Codex self-distribution fixes; the server, tools, hooks and physics are unchanged:
