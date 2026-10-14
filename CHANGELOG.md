@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.12 — 2026-10-14
+
+Fixes from the 2026-10-14 fresh-user re-test of 0.1.11, and the plugin directory's review holds and warnings that could be removed without removing a feature or weakening a check. Physics, recorded trajectory bytes, the MCP tool names, schemas and hints, the `/sim` pane and its eight action commands, and the dependencies are unchanged:
+
+- The Claude Code mod starts its reader with a command written as fixed text, `/usr/bin/env -i -S 'PATH=${PATH}:/usr/local/bin:/usr/bin:/bin' LANG=C.UTF-8 node tools/sim-view.mjs --pane` in the plugin folder, and, only where `env` has no `-S` (BusyBox, as on Alpine Linux), the same command with `PATH=/usr/local/bin:/usr/bin:/bin`. The view, the configured `connection_file` and `run_root` paths, the pane's options and an action's arguments reach the reader as one JSON request on standard input, which `tools/sim-view.mjs --pane` checks as strictly as its flags. The mod reads no environment variable any more: `env` expands `${PATH}` from Claude Code's own environment. The reader still starts with nothing but `PATH` and `LANG`, and every view and action preflight answers byte for byte as before. README "What this plugin runs, sends and reads" prints both commands and answers each remaining directory review hold in one plain sentence.
+- `/sim` and the Sim pane's close hook have a `.catch`: a failing `/sim` hook answers "Sim pane unavailable. Run /sim again to retry.", and closing always passes its event on.
+- Capture follows a link in `SIM_CHROMIUM_EXECUTABLE` to the file it names and refuses a script, such as `/usr/bin/google-chrome`, before launching anything: the capture receipt's `chromiumSha256` had hashed the wrapper script instead of the browser.
+- `node tools/replay.mjs` on a file says the path is not a directory instead of printing a raw ENOTDIR, and `--help` or `-h` prints its usage instead of being taken for a run path.
+- The `connection_file` option is titled "Connection file (robot or coordinator)" in the plugin and Desktop manifests.
+- After a hub stops, the MCP shim says that restarting it with the same `--root` writes the same connection file again, so nothing needs reconfiguring; only a new root needs the new file.
+- `robot.goto`'s description says the robot stops at the coordinate, a held crate rides 0.75 m ahead of it, and a delivery goes to `deliveryAreas[].robotStops`. The golden tool-list fixtures carry it.
+- The process-running FIFO tests and the launcher-lines test move unchanged into `test/fifo.test.mjs` and `test/launcher-lines.test.mjs`, which make no HTTP request, and `tools/generate-release.py`'s two release downloads move to `tools/release_download.py`, which only reads bytes; the plugin directory had read each file as download-and-run. `tools/package-files.json` lists the three new files.
+- Tests: 138 Node tests (132 in 0.1.11), 49 plugin hook tests (44) and 15 packaging tests (14).
+
 ## 0.1.11 — 2026-10-13
 
 Fixes from the 2026-10-13 fresh-user re-test of 0.1.10. Physics, recorded trajectory bytes, the tool names, schemas and hints, the Claude Code mod and the dependencies are unchanged:
