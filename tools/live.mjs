@@ -13,7 +13,7 @@ export function registration(identity,connection){
 export async function launchLive({root,scenario=defaultScenario(),assignments,budgetMs=120000,stepTicks=60,activeRobots,maxTicks=36000,engine='rapier'}){
  absoluteInputPath(root,'--root');
  assignments=validateAssignments(assignments,scenario);
- if(assignments.some(a=>!a.driverLabel))throw new Error('Live work records require the actual driverLabel for every agent');
+ if(assignments.some(a=>!a.driverLabel))throw new Error('Live work records require the actual driverLabel for every agent: add "driverLabel" to each assignment (the demo work record has none; docs/LIVE.md shows the shape)');
  const hub=await startHub({root,scenario,assignments,maxTicks,engine,live:{budgetMs,stepTicks,activeRobots:activeRobots??scenario.robots.map(r=>r.id)}});
  return {hub,registrations:[registration({role:'coordinator',agentId:'coordinator'},hub.connections.coordinator),...assignments.map(a=>registration({role:'robot',robotId:a.robotId,agentId:a.agentId,driverLabel:a.driverLabel,active:!activeRobots||activeRobots.includes(a.robotId)},hub.connections[a.robotId]))]};
 }

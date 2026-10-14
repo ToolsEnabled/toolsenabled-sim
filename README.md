@@ -89,7 +89,7 @@ claude plugin install toolsenabled-sim@toolsenabled-sim -s local --config connec
 Start `claude` in that folder, approve each Sim tool call when asked, and try these three prompts:
 
 1. `/sim status` opens the read-only Sim pane with `Bound role: coordinator / coordinator`; press `2` for its Result row: `Tick 0 · 0/3 delivered · 0 collisions · score 0`.
-2. `Deliver amber's assigned crate to its zone, advancing the world with sim.step as you go.` Claude drives amber to `cargo-a` and grabs it (`robot.goto`, `robot.grab`), carries it to zone A, releases it (`robot.release`) and advances the world with about ten `sim.step` calls of 60 ticks, then reports 1 of 3 crates delivered, 0 collisions, score 100.
+2. `Deliver amber's assigned crate to its zone, advancing the world with sim.step as you go.` Claude drives amber to `cargo-a` and grabs it (`robot.goto`, `robot.grab`), carries it to zone A's robot stop point (`robot.goto` to x 4.25, y -3.5: a held crate rides 0.75 m ahead of the robot, so the robot stops 0.75 m short of the zone center at x 5, y -3.5, as `deliveryAreas[].robotStops.east` in `sim.status` says; a goto to the center itself releases the crate at about x 5.72, outside the zone), releases it (`robot.release`) and advances the world with about ten `sim.step` calls of 60 ticks, then reports 1 of 3 crates delivered, 0 collisions, score 100.
 3. `/toolsenabled-sim:step 60` passes the plugin's preflight, advances the world 60 ticks (one simulated second) and reports the new tick, 1 of 3 delivered and no contacts.
 
 ## What this plugin runs, sends and reads
@@ -148,11 +148,11 @@ Open `/sim help` for local status, robots, map, runs, events, scenarios, replay 
 
 ## Live mode
 
-Run `node tools/live.mjs --root /absolute/private-live-run --work-record /absolute/work-record.json` to print per-agent Claude Code and Codex registration and start the shared live clock. `--engine mujoco` runs the live world on MuJoCo. The work record includes the real `driverLabel` for each agent. Every active robot finishes a round with `robot.submit`; the launcher steps when all have submitted or a **120-second wall-clock budget** expires. Missing robots hold. Round tokens reject late commands. Physics and frame replay remain deterministic. See [docs/LIVE.md](docs/LIVE.md) for registration, the agent loop, options and replay behavior.
+Run `node tools/live.mjs --root /absolute/private-live-run --work-record /absolute/work-record.json` to print per-agent Claude Code and Codex registration and start the shared live clock. `--engine mujoco` runs the live world on MuJoCo. Every assignment in the work record must carry a `driverLabel`, the actual driver's name such as `CLAUDE CODE` or `CODEX` (see the example in [docs/LIVE.md](docs/LIVE.md)); the demo's `runs/demo/work-record.json` has none, so add one to each of its three assignments before passing it to the launcher, or the launcher refuses it. Every active robot finishes a round with `robot.submit`; the launcher steps when all have submitted or a **120-second wall-clock budget** expires. Missing robots hold. Round tokens reject late commands. Physics and frame replay remain deterministic. See [docs/LIVE.md](docs/LIVE.md) for registration, the agent loop, options and replay behavior.
 
 ## Render offline
 
-Set `SIM_CHROMIUM_EXECUTABLE` to a portable Chromium binary with its runtime libraries. If unset, capture and the render tests use `playwright-core`'s cached Chromium path (`chromium.executablePath()`), which must already exist locally. This package never downloads a browser or installs system packages. Physics does not depend on Chromium.
+Set `SIM_CHROMIUM_EXECUTABLE` to the real browser binary with its runtime libraries, for example `/opt/google/chrome/chrome` or a `chrome-headless-shell` binary, not a wrapper script such as `/usr/bin/google-chrome`: the replay test runs the printed capture command with only Node's directory on `PATH`, where a wrapper script fails before the browser starts (Playwright then reports only that the browser was closed). If unset, capture and the render tests use `playwright-core`'s cached Chromium path (`chromium.executablePath()`), which must already exist locally. This package never downloads a browser or installs system packages. Physics does not depend on Chromium.
 
 ```sh
 export SIM_CHROMIUM_EXECUTABLE=/path/to/chrome-headless-shell

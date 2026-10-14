@@ -57,6 +57,13 @@ test('live holds still commit after the robot exhausts its command budget',async
   assert.equal(p.tick,7);assert.equal(p.pose.x,before.pose.x);await replay(hub.runDir);
  },7);
 });
+// fresh-user-6 Sim #3: the demo's work record has no driverLabel, so the launcher refused it with a message that did not say what to add.
+test('the live launcher refuses a work record without driverLabel and says what to add and where the example is',async()=>{
+ const {launchLive}=await import('../tools/live.mjs');const {defaultAssignments,defaultScenario}=await import('../src/hub.mjs');
+ const root=await mkdtemp(join(tmpdir(),'sim-live-label-'));
+ try{await assert.rejects(launchLive({root:join(root,'hub'),assignments:defaultAssignments(defaultScenario())}),/^Error: Live work records require the actual driverLabel for every agent: add "driverLabel" to each assignment \(the demo work record has none; docs\/LIVE\.md shows the shape\)$/);}
+ finally{await rm(root,{recursive:true,force:true});}
+});
 test('live launcher prints per-agent Claude Code and Codex registration and binds the actual stdio role',async()=>{
  const {spawn}=await import('node:child_process');const {writeFile}=await import('node:fs/promises');const {defaultAssignments,defaultScenario}=await import('../src/hub.mjs');
  const root=await mkdtemp(join(tmpdir(),"sim live ' "));let child,client;let closed;

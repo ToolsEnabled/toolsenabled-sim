@@ -61,7 +61,7 @@ export function readView({root,sim,live,run,instanceId,online=true},identity,par
   else if(view==='map'){
    const grid=Array.from({length:13},()=>Array(33).fill('.')),s=header.scenario;
    for(const [items,char] of [[s.zones,'Z'],[s.obstacles,'#'],[snapshot.crates,'C'],[snapshot.robots,'R']])for(const o of items){const x=Math.round((o.x/s.arena.width+.5)*32),y=Math.round((o.y/s.arena.depth+.5)*12);if(grid[y]?.[x])grid[y][x]=identity.role==='robot'&&o.id===identity.robotId?'@':char;}
-   rows=[row('map','@ you / R robot / C crate / Z zone / # rack',grid.map(r=>r.join(''))),...s.zones.map(z=>row(z.id,`${z.label} (${z.id})`,[`Center: ${z.x}, ${z.y}`,`Delivery area: ${JSON.stringify(deliveryAreas([z])[0].centerBounds)}`]))];
+   rows=[row('map','@ you / R robot / C crate / Z zone / # rack',grid.map(r=>r.join(''))),...s.zones.map(z=>{const a=deliveryAreas([z])[0];return row(z.id,`${z.label} (${z.id})`,[`Center: ${z.x}, ${z.y}`,`Delivery area: ${JSON.stringify(a.centerBounds)}`,`Robot stop, arriving facing east: ${a.robotStops.east.x}, ${a.robotStops.east.y} (a held crate rides ${a.carryOffset} m ahead of the robot)`]);})];
   }else if(view==='scenarios'){
    const shipped=JSON.parse(readFileSync(new URL('../scenarios/warehouse.json',import.meta.url),'utf8'));
    rows=[row('warehouse','Shipped: scenarios/warehouse.json',[scenarioSummary(shipped),`Arena: ${shipped.arena.width} × ${shipped.arena.depth}`]),row('current','Current scenario',[scenarioSummary(header.scenario),`Arena: ${header.scenario.arena.width} × ${header.scenario.arena.depth}`])];

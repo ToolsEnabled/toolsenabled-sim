@@ -21,6 +21,23 @@ test('Claude and Desktop use one absolute connection-file option in env; Codex u
  assert.deepEqual([codex.interface.websiteURL,codex.interface.supportURL,codex.interface.privacyPolicyURL,codex.interface.termsOfServiceURL],['https://toolsenabled.ai/sim/','https://toolsenabled.ai/support/','https://toolsenabled.ai/privacy/',undefined]);
  assert.ok(!(await readdir(root)).includes('server.json'));
 });
+// fresh-user-6 Sim #6: after a clean hub shutdown the shim said only "Invalid SIM_CONNECTION file."; a stopped hub removes its connection
+// files, and the plugin has to be pointed at the new one, so the shim says so. Every other refusal keeps its one-line message.
+test('after the hub stops, the MCP shim names the missing connection file and says to start the hub again',async()=>{
+ const temp=await mkdtemp(join(tmpdir(),'sim-stopped-hub-'));
+ try{
+  const hub=await startHub({root:temp}),file=hub.connections.coordinator;await hub.close();
+  const input=JSON.stringify({jsonrpc:'2.0',id:1,method:'initialize',params:{}})+'\n';
+  const gone=spawnSync(process.execPath,[join(root,'src/mcp.mjs')],{env:{...process.env,SIM_CONNECTION:file},input,encoding:'utf8',timeout:5000});
+  assert.equal(gone.status,1);assert.equal(gone.stdout,'');assert.equal(gone.stderr.trim().split('\n').length,1,gone.stderr);
+  assert.match(gone.stderr,/^SIM_CONNECTION file not found: /);assert.ok(gone.stderr.includes(file),gone.stderr);assert.match(gone.stderr,/hub removes its connection files when it stops.*start the hub again.*new connection file/);
+  const missingRoot=spawnSync(process.execPath,[join(root,'src/mcp.mjs')],{env:{...process.env,SIM_CONNECTION:join(temp,'gone','connection-amber.json')},input,encoding:'utf8',timeout:5000});
+  assert.equal(missingRoot.status,1);assert.match(missingRoot.stderr,/^SIM_CONNECTION file not found: .*start the hub again/);
+  const {writeFile,mkdir}=await import('node:fs/promises');await mkdir(join(temp,'bad'),{mode:0o700});await writeFile(join(temp,'bad','connection.json'),'not json',{mode:0o600});
+  const invalid=spawnSync(process.execPath,[join(root,'src/mcp.mjs')],{env:{...process.env,SIM_CONNECTION:join(temp,'bad','connection.json')},input,encoding:'utf8',timeout:5000});
+  assert.equal(invalid.status,1);assert.equal(invalid.stderr,'Invalid SIM_CONNECTION file.\n');
+ }finally{await rm(temp,{recursive:true,force:true});}
+});
 test('SIM_CONNECTION rejects relative, tilde, empty and drive-relative paths before reading; absolute paths with spaces work',async()=>{
  const temp=await mkdtemp(join(tmpdir(),'sim paths '));let hub;
  try{

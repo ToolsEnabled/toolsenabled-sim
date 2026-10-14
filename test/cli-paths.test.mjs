@@ -28,6 +28,8 @@ test('demo, replay and configuration helpers report usage, engine and file error
   await mkdir(join(temp,'taken'));oneLine(run('tools/demo.mjs','--output',join(temp,'taken')),/^Demo output directory must be new: /,'demo existing');
   oneLine(run('tools/demo.mjs','--output'),/^--output requires a value$/,'demo bare output');oneLine(run('tools/demo.mjs','--output',join(temp,'bare-work'),'--work-record'),/^--work-record requires a value$/,'demo bare work record');assert.deepEqual(await readdir(temp),['taken']);
   oneLine(run('tools/mcp-config.mjs'),/^Usage: node tools\/mcp-config\.mjs/,'config usage');oneLine(run('tools/mcp-config.mjs','--client'),/^--client requires a value$/,'config bare client');
-  oneLine(run('tools/replay.mjs',join(temp,'missing')),/^ENOENT: .*trajectory\.jsonl/,'replay missing');
+  // fresh-user-6 Sim #4: a wrong path printed a raw ENOENT. Replay names what it needs: a run directory with trajectory.jsonl.
+  oneLine(run('tools/replay.mjs',join(temp,'missing')),/^Replay needs a run directory containing trajectory\.jsonl and actions\.jsonl, such as \.\/runs\/demo or a hub's run-NNNN folder: .*\/missing\/trajectory\.jsonl does not exist$/,'replay missing');
+  await mkdir(join(temp,'runs'));await mkdir(join(temp,'runs','demo'));oneLine(run('tools/replay.mjs',join(temp,'runs')),/^Replay needs a run directory .*\/runs\/trajectory\.jsonl does not exist$/,'replay parent of a run');assert.doesNotMatch(run('tools/replay.mjs',join(temp,'runs')).stderr,/ENOENT/);
  }finally{await rm(temp,{recursive:true,force:true});}
 });
