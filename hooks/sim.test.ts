@@ -2,11 +2,15 @@ import { test, expect } from 'claude-code/testing'
 import { actions } from './view.mjs'
 
 const options={connection_file:'/private/run/connection-amber.json'}
+// 0.1.12: the two reader commands, as fixed text (the directory holds a command it cannot read in full). Everything that
+// varies is in the JSON request on standard input. test/pane-env.test.mjs runs both commands for real.
+const READER=['/usr/bin/env','-i','-S','PATH=${PATH}:/usr/local/bin:/usr/bin:/bin','LANG=C.UTF-8','node','tools/sim-view.mjs','--pane']
+const BUSYBOX_READER=['/usr/bin/env','-i','PATH=/usr/local/bin:/usr/bin:/bin','LANG=C.UTF-8','node','tools/sim-view.mjs','--pane']
 const presentation={isFullscreen:false,columns:120}
 function frame(view='status',offset=0){return {schema:'ai.toolsenabled/sim-view/v1',view,run:'run-0001',stream:'actions',identity:{role:'robot',agentId:'agent-amber',robotId:'amber'},summary:['Run run-0001 · live'],limit:10,revision:'a'.repeat(64),rows:[{id:view==='runs'?'run-0001':'amber',title:'Visible result',lines:['Caller: robot / agent-amber']}],offset,total:21,nextOffset:offset<20?offset+10:null,nextCursor:null}}
 function world(on:any){
  const processes:any[]=[],prompts:any[]=[],commands:any[]=[],opened:any[]=[],closed:any[]=[],native:any[]=[]
- let answer:any=frame(),failure='',raw:any=null,truncated=false,builtin=false,pending:any=null,started:any=null,resume:any=null,uiFails=false
+ let answer:any=frame(),failure='',raw:any=null,truncated=false,builtin=false,pending:any=null,started:any=null,resume:any=null,uiFails=false,envRefusal=''
  on('session.start',(_:any,e:any)=>({cwd:e.cwd}))
  on('session.end',(_:any,e:any)=>({sessionId:e.sessionId}))
  on('session.version',()=>({value:{version:'2.1.287'}}))
@@ -16,13 +20,12 @@ function world(on:any){
  on('ui.open',(_:any,e:any)=>{if(uiFails)throw new Error('No surface');opened.push(e);return {value:{isPlaced:true}}})
  on('ui.close',(_:any,e:any)=>{closed.push(e);return {value:undefined}})
  on('ui.toast',()=>({value:undefined}))
- on('env.get',()=>({value:'/usr/local/bin:/usr/bin:/bin'}))
- on('process.run',async(_:any,e:any)=>{processes.push(e);if(pending){started();await pending}return {value:{exitCode:failure?1:0,stdout:failure?'':raw??JSON.stringify(answer),stderr:failure,isStdoutTruncated:truncated,isStderrTruncated:false}}})
+ on('process.run',async(_:any,e:any)=>{processes.push(e);if(envRefusal&&e.argv[2]==='-S')return {value:{exitCode:1,stdout:'',stderr:envRefusal,isStdoutTruncated:false,isStderrTruncated:false}};if(pending){started();await pending}return {value:{exitCode:failure?1:0,stdout:failure?'':raw??JSON.stringify(answer),stderr:failure,isStdoutTruncated:truncated,isStderrTruncated:false}}})
  on('prompt.submit',(_:any,e:any)=>{prompts.push(e);return {text:e.text}})
  on('tool.call',()=>{throw new Error('No direct tool calls')})
  on('mcp.call',()=>{throw new Error('No pane MCP calls')})
  on('ui.status',()=>{throw new Error('No startup warning/status line')})
- return {processes,prompts,commands,opened,closed,native,defer:()=>{const ready=new Promise(r=>started=r);pending=new Promise(r=>resume=r);return ready},release:()=>{resume();pending=null},setAnswer:(a:any)=>{answer=a;raw=null;truncated=false},setRaw:(r:string,t=false)=>{raw=r;truncated=t},setFailure:(e:string)=>failure=e,setBuiltin:()=>builtin=true,failUi:()=>uiFails=true}
+ return {processes,prompts,commands,opened,closed,native,defer:()=>{const ready=new Promise(r=>started=r);pending=new Promise(r=>resume=r);return ready},release:()=>{resume();pending=null},setAnswer:(a:any)=>{answer=a;raw=null;truncated=false},setRaw:(r:string,t=false)=>{raw=r;truncated=t},setFailure:(e:string)=>failure=e,setBuiltin:()=>builtin=true,failUi:()=>uiFails=true,refuseSplit:(text:string)=>envRefusal=text}
 }
 async function start($:any){await $.session.start({cwd:'/project',surface:'terminal',isInteractive:true})}
 async function command($:any,args:string,kind='composer'){return $.command.run({command:'sim',args,origin:{kind},presentation})}
@@ -35,16 +38,32 @@ test('registers only /sim at neutral startup without reads or prompts',{options}
 for(const view of ['status','robots','runs','events','map','scenarios','replay','connection'])test(`${view} opens a local read-only pane and q closes`,{options},async($,on)=>{
  const w=world(on);w.setAnswer(frame(view));await start($);const result=await command($,view==='status'?'':view)
  expect(result.text).toBe('Sim pane opened.');expect(result.context).toBe(undefined);expect(w.processes.length).toBe(1)
- const call=w.processes[0];expect(call.argv.slice(0,2)).toEqual(['/usr/bin/env','-i']);expect(call.argv[6]).toBe('node');expect(call.argv[7]).toMatch(/\/tools\/sim-view\.mjs$/)
- expect(call.argv.slice(8,10)).toEqual([view,'--json']);expect(call.argv).toContain('SIM_CONNECTION='+options.connection_file);expect(call.init.env).toBe(undefined)
+ const call=w.processes[0];expect(call.argv).toEqual(READER);expect(call.init.cwd).toMatch(/^\//);expect(call.init.env).toBe(undefined);expect(call.init.timeoutMs).toBe(5000)
+ expect(JSON.parse(call.init.stdin)).toEqual({view,connection:options.connection_file,root:'',options:view==='events'?{stream:'all'}:{}})
  const ui=await pane($);expect(JSON.stringify(await ui.drawn())).toContain('Visible result')
  expect(w.opened[0].closeOnEscape).toBe(true);await press($,'sim-close');expect(w.closed.length).toBe(1);expect(w.prompts.length).toBe(0)
+})
+// 0.1.12: run_root reaches the reader in the request, and a BusyBox env without -S gets the same reader once more.
+test('the configured run_root reaches the reader in its request, never in its command',{options:{...options,run_root:'/private/run'}},async($,on)=>{
+ const w=world(on);await start($);await command($,'runs');expect(w.processes[0].argv).toEqual(READER)
+ expect(JSON.parse(w.processes[0].init.stdin)).toEqual({view:'runs',connection:options.connection_file,root:'/private/run',options:{}})
+})
+for(const refusal of ["env: invalid option -- 'S'\nBusyBox v1.36.1 multi-call binary.\n",'env: unrecognized option: S\nUsage: env [-i0] [-u NAME]... [-] [NAME=VALUE]... [PROG ARGS]\n'])test(`an env without -S runs the same reader with the standard PATH: ${refusal.split('\n')[0]}`,{options},async($,on)=>{
+ const w=world(on);w.refuseSplit(refusal);await start($);await command($,'status');const ui=await pane($)
+ expect(w.processes.map((p:any)=>p.argv)).toEqual([READER,BUSYBOX_READER]);expect(w.processes[1].init).toEqual(w.processes[0].init);expect(JSON.stringify(await ui.drawn())).toContain('Visible result')
+ const event={command:'toolsenabled-sim:step',args:'1',origin:{kind:'composer'},presentation}
+ w.setAnswer({schema:'ai.toolsenabled/sim-action/v1',allowed:true,request:{verb:'step',mode:'manual',caller:{role:'coordinator',agentId:'coordinator'}}});await press($,'sim-close');await $.command.run(event)
+ expect(w.processes.slice(2).map((p:any)=>p.argv)).toEqual([READER,BUSYBOX_READER]);expect(w.native).toEqual([event])
+})
+test('a reader failure that is not env\'s own refusal is not retried',{options},async($,on)=>{
+ const w=world(on);w.setFailure('Sim view failed. Check arguments, private file ownership and configuration.');await start($);await command($,'status')
+ expect(w.processes.length).toBe(1);const ui=await pane($);expect(JSON.stringify(await ui.drawn())).toContain('unavailable')
 })
 test('row details stay local and paging keeps the revision',{options},async($,on)=>{
  const w=world(on);w.setAnswer(frame('runs'));await start($);await command($,'runs');const ui=await pane($)
  await press($,'sim-row-0');expect(JSON.stringify(await ui.drawn())).toContain('Caller: robot / agent-amber');expect(w.processes.length).toBe(1)
  await press($,'sim-back');w.setAnswer(frame('runs',10));await press($,'sim-next')
- expect(w.processes[1].argv).toContain('--revision');expect(w.processes[1].argv).toContain('a'.repeat(64));expect(w.processes[1].argv).toContain('10')
+ expect(w.processes[1].argv).toEqual(READER);expect(JSON.parse(w.processes[1].init.stdin)).toEqual({view:'runs',connection:options.connection_file,root:'',options:{offset:'10',revision:'a'.repeat(64)}})
  expect(w.prompts.length).toBe(0)
 })
 // fresh-user-7 Sim #8: /sim and the pane's ui.close were gating hooks without .catch; a failing /sim hook now answers itself.
@@ -53,8 +72,8 @@ test('a /sim hook that fails answers with fixed text and never reaches a native 
  expect(result.text).toBe('Sim pane unavailable. Run /sim again to retry.');expect(w.native.length).toBe(0);expect(w.prompts.length).toBe(0)
 })
 test('errors are plain, retry is explicit and close clears the old data',{options},async($,on)=>{
- const w=world(on);w.setFailure('Error at /private/secret-path\nstack');await start($);await command($,'status');const ui=await pane($)
- const drawn=JSON.stringify(await ui.drawn());expect(drawn).toContain('unavailable');expect(drawn.includes('secret-path')).toBe(false)
+ const w=world(on);w.setFailure('Error at /private/hidden-path\nstack');await start($);await command($,'status');const ui=await pane($)
+ const drawn=JSON.stringify(await ui.drawn());expect(drawn).toContain('unavailable');expect(drawn.includes('hidden-path')).toBe(false)
  expect(w.processes.length).toBe(1);await press($,'sim-close');expect(w.prompts.length).toBe(0)
 })
 test('terminal controls are rendered as visible escapes, never emitted raw',{options},async($,on)=>{
@@ -101,7 +120,7 @@ for(const action of ['deliver','move 1.25 -2','hold','submit','reset','step 1','
  const event={command:'toolsenabled-sim:'+verb,args:args.join(' '),origin:{kind:'composer'},presentation}
  const result=await $.command.run(event)
  expect(w.native).toEqual([event]);expect(result.context).toEqual(['native prompt retained']);expect(w.processes.length).toBe(1);expect(w.prompts.length).toBe(0)
- expect(w.processes[0].argv.slice(0,2)).toEqual(['/usr/bin/env','-i']);expect(w.processes[0].argv.slice(8,10)).toEqual(['action','--json']);expect(JSON.parse(w.processes[0].init.stdin)).toEqual({verb,args:args.map(v=>verb==='move'||verb==='step'?Number(v):v)})
+ expect(w.processes[0].argv).toEqual(READER);expect(JSON.parse(w.processes[0].init.stdin)).toEqual({view:'action',connection:options.connection_file,root:'',options:{},action:{verb,args:args.map(v=>verb==='move'||verb==='step'?Number(v):v)}})
 })
 const typed:any={deliver:'',move:'1.25 -2',hold:'',submit:'',step:'1',assign:'amber cargo-a task-1 ledger-1',scenario:'/private/scene.json',reset:''}
 test('only the person starts an action: other origins are refused and Remote Control runs it unchanged',{options},async($,on)=>{

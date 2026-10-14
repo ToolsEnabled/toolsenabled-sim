@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { views, usage, commandInput, parsePage, detailLines, localHelp, readerCommand } from './view.mjs'
+import { views, usage, commandInput, parsePage, detailLines, localHelp, readerRequest, envLacksSplit } from './view.mjs'
 
 const PANE='toolsenabled-sim-view'
 let serial=0,opened=false,loading=false,collision=false
@@ -9,17 +9,26 @@ let history:any[]=[]
 let currentQuery:any={}
 function clear(){serial++;opened=false;loading=false;page=null;detail=null;error='';hint='';history=[];currentQuery={};detailOffset=0}
 function redraw($:any){$.ui.invalidate('ui.render')}
+// The mod's one program: the plugin's reader, started in the plugin folder by a fixed command. env -i empties the environment
+// before Node starts, so the reader gets PATH and LANG and nothing else from Claude Code (no Node settings such as NODE_OPTIONS);
+// -S fills in PATH from Claude Code's own environment, so node is found where Claude Code finds it. The request goes to standard input.
+async function reader($:any,request:string){
+ const init={cwd:$.plugin.root,stdin:request,timeoutMs:5000}
+ const result=await $.process.run(['/usr/bin/env','-i','-S','PATH=${PATH}:/usr/local/bin:/usr/bin:/bin','LANG=C.UTF-8','node','tools/sim-view.mjs','--pane'],init)
+ // An env without -S (BusyBox, as on Alpine Linux) refuses before anything starts: the same reader, with the standard PATH.
+ if(result.exitCode!==0&&!result.stdout&&envLacksSplit.test(String(result.stderr||'')))return $.process.run(['/usr/bin/env','-i','PATH=/usr/local/bin:/usr/bin:/bin','LANG=C.UTF-8','node','tools/sim-view.mjs','--pane'],init)
+ return result
+}
 async function close($:any){clear();await $.ui.close({id:PANE})}
 async function load($:any,connection:string,root:string,query:any={}){
  const mine=++serial;loading=true;error='';hint='';page=null;detail=null;detailOffset=0;currentQuery=query;redraw($)
  try{
   if(selectedView==='help'){page=parsePage(localHelp(query),'help');return}
-  const argv=[...readerCommand($.plugin.root,selectedView,connection,root,await $.env.get('PATH')),
-   ...(selectedView==='events'?['--stream',stream]:[]),
-   ...(['events','replay'].includes(selectedView)&&selectedRun?['--run',selectedRun]:[]),
-   ...(selectedView==='scenarios'&&selectedCheck?['--check',selectedCheck]:[]),
-   ...Object.entries(query).flatMap(([k,v])=>['--'+k,String(v)])]
-  const result=await $.process.run(argv,{cwd:$.plugin.root,timeoutMs:5000})
+  const options={...(selectedView==='events'?{stream}:{}),
+   ...(['events','replay'].includes(selectedView)&&selectedRun?{run:selectedRun}:{}),
+   ...(selectedView==='scenarios'&&selectedCheck?{check:selectedCheck}:{}),
+   ...query}
+  const result=await reader($,readerRequest(selectedView,connection,root,options))
   if(mine!==serial||!opened)return
   if(result.exitCode!==0||result.isStdoutTruncated||result.isStderrTruncated){
    const stderr=String(result.stderr||'')
@@ -61,7 +70,7 @@ async function actionRefusal($:any,verb:string,e:any,connection:string,root:stri
  const actionEpoch=++serial
  let plan:any
  try{
-  const result=await $.process.run(readerCommand($.plugin.root,'action',connection,root,await $.env.get('PATH')),{cwd:$.plugin.root,stdin:JSON.stringify({verb,args:command.args}),timeoutMs:5000})
+  const result=await reader($,readerRequest('action',connection,root,{},{verb,args:command.args}))
   if(result.exitCode!==0||result.isStdoutTruncated||result.isStderrTruncated||result.stdout.length>65536)throw new Error('preflight')
   if(actionEpoch!==serial)return {text:'Sim action cancelled.'}
   plan=JSON.parse(result.stdout)

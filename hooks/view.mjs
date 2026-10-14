@@ -41,8 +41,11 @@ export function detailLines(row){
  const lines=[];for(const text of [row.title,...row.lines]){const points=Array.from(text);for(let i=0;i<points.length;i+=64)lines.push(points.slice(i,i+64).join(''));}return lines;
 }
 
-// process.run env is additive in Claude Code. env -i removes the client's secrets
-// before Node starts, including NODE_OPTIONS and inherited loader settings.
-export function readerCommand(pluginRoot,view,connection,root,path){
- return ['/usr/bin/env','-i',`PATH=${path||'/usr/local/bin:/usr/bin:/bin'}`,'LANG=C.UTF-8',`SIM_CONNECTION=${connection}`,`SIM_RUN_ROOT=${root}`,'node',`${pluginRoot}/tools/sim-view.mjs`,view,'--json'];
+// The reader's request, written to its standard input. The reader commands in register.tsx are fixed text; everything that
+// varies is here: the view (or 'action' with the action's verb and arguments), the configured connection_file and run_root
+// paths, and the options the pane needs, as strings.
+export function readerRequest(view,connection,root,options={},action){
+ return JSON.stringify({view,connection,root,options:Object.fromEntries(Object.entries(options).map(([k,v])=>[k,String(v)])),...(action?{action}:{})});
 }
+// BusyBox env (Alpine Linux) has no -S: it refuses with its usage error before anything starts.
+export const envLacksSplit=/^env: (?:invalid|unrecognized) option/m;

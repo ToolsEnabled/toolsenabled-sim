@@ -111,13 +111,13 @@ This covers the Claude Code plugin in this repository: the hooks module `hooks/r
 
 **Programs it starts**
 
-The mod starts one program, the plugin's own reader, to read the view a pane shows or to check an action before the model turn (the preflight). It starts it through Claude Code's process call, with a 5-second limit and the plugin folder as its working directory:
+The mod starts one program, the plugin's own reader, to read the view a pane shows or to check an action before the model turn (the preflight). It starts it through Claude Code's process call, with a 5-second limit and the plugin folder as its working directory, by this command, written as fixed text:
 
 ```text
-/usr/bin/env -i PATH=<your PATH> LANG=C.UTF-8 SIM_CONNECTION=<connection_file> SIM_RUN_ROOT=<run_root> node <plugin folder>/tools/sim-view.mjs <view> --json [options]
+/usr/bin/env -i -S 'PATH=${PATH}:/usr/local/bin:/usr/bin:/bin' LANG=C.UTF-8 node tools/sim-view.mjs --pane
 ```
 
-`<view>` is the pane being opened (`status`, `robots`, `map`, `runs`, `events`, `scenarios`, `replay` or `connection`; `help` starts nothing), or `action` for an action's preflight, which receives `{"verb": ..., "args": [...]}` on standard input. The options are the ones that pane needs: `--stream`, `--run`, `--check <file>`, `--offset`, `--cursor` and `--revision`. `env -i` starts it with only those four variables, so your API keys, tokens and Node settings such as `NODE_OPTIONS` never reach it. `node` is found on your `PATH`, or on `/usr/local/bin:/usr/bin:/bin` when `PATH` is empty. It runs when you open a pane, page, reload or switch views, or type an action command; never at startup and never on a timer. It is the same reader the Codex commands run (`tools/sim-view.mjs`); running it as its own process keeps your environment out of it.
+Everything that varies goes to the reader as one JSON request on its standard input: the pane being opened (`status`, `robots`, `map`, `runs`, `events`, `scenarios`, `replay` or `connection`; `help` starts nothing), or `action` with the action's verb and arguments for a preflight; the `connection_file` and `run_root` paths you configured; and the options that pane needs (`stream`, `run`, `check`, `offset`, `cursor` and `revision`). `env -i` starts the reader with only `PATH` and `LANG`, so your API keys, tokens and Node settings such as `NODE_OPTIONS` never reach it; `-S` first expands `${PATH}` from Claude Code's own environment, so `node` is found on your `PATH`, then in `/usr/local/bin`, `/usr/bin` and `/bin`. Where `/usr/bin/env` has no `-S` (BusyBox, as on Alpine Linux), it refuses before anything starts, and the mod runs the same reader once more with the second fixed command, `/usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 node tools/sim-view.mjs --pane`. It runs when you open a pane, page, reload or switch views, or type an action command; never at startup and never on a timer. It is the same reader the Codex commands run (`tools/sim-view.mjs`); running it as its own process keeps your environment out of it.
 
 The MCP server entry runs `node <plugin folder>/src/mcp.mjs` with `SIM_CONNECTION` set to your `connection_file`; Claude Code starts and stops it. Neither the mod nor the server starts a hub, a browser or a shell. Every tool the server lists declares a plain-language `title` (as the tool's top-level `title` and as `annotations.title`) and the hints `readOnlyHint`, `destructiveHint`, `idempotentHint` and `openWorldHint`: `sim.observe`, `sim.status` and `sim.assignments` are read-only, every other tool changes the shared world and is marked destructive and not idempotent, and no tool reaches beyond your computer.
 
@@ -126,7 +126,7 @@ The MCP server entry runs `node <plugin folder>/src/mcp.mjs` with `SIM_CONNECTIO
 - The connection file you set as `connection_file`. The reader and the MCP server open it only when its folder is owned by you and not writable by group or others, and the file is a regular file (not a symbolic link; a FIFO or other special file is refused at once) owned by you with mode 0600, at most 4 KiB. It holds the local hub's address, a random 256-bit capability for this one connection, and the role, agent and robot that the capability is bound to.
 - Run history, in the run root you set as `run_root` or in the connection file's own folder when that is a private run root (owned by you, mode 0700): the run folders, `current-run.json` and the runs' `trajectory.jsonl`, `actions.jsonl` and `live.jsonl`, at most 512 KiB per read. While the hub is running it supplies the views, so the reader only locates the run root (through `current-run.json`), lists the run folders and reads the selected run's last recorded tick for `/sim replay`.
 - A scenario file you name in `/sim scenarios <file>` or `/toolsenabled-sim:scenario <file>`: an absolute path to a regular file owned by you, not a symbolic link or FIFO, not writable by group or others, at most 256 KiB. After the scenario preflight accepts it, the model reads that same file with Claude Code's Read tool, under its normal approval.
-- The mod itself reads one environment variable, `PATH`, to hand it to the reader.
+- The mod itself reads no file and no environment variable: it hands the reader the `connection_file` and `run_root` values you configured, and `env` hands it your `PATH`.
 
 **What it sends, and where**
 
@@ -141,6 +141,16 @@ The directory reports that Sim uses a credential from your machine: that is the 
 **Where it runs, and its dependencies**
 
 The MCP server is a local stdio server that needs `connection_file`. Claude Code loads it and asks you for that value; claude.ai chat ignores local servers, and Cowork ignores a server whose option has no default, which `connection_file` does not have. `package-lock.json` pins four npm packages by registry integrity: `@dimforge/rapier3d-compat` 0.17.3, `@mujoco/mujoco` 3.14.0, `playwright-core` 1.62.0 and `three` 0.180.0. A Git install installs them with `npm ci --ignore-scripts`; the release ZIP already contains them.
+
+**What the directory's review notes mean for Sim**
+
+- Mod can read local data and can also send data out: the mod's reader reads your connection file and run history, and sends requests only to your own hub on 127.0.0.1, so nothing leaves your computer.
+- Mod starts a program with a command the directory couldn't read in full: both reader commands are fixed text, printed in full above, and only the JSON request on the reader's standard input varies.
+- Mod starts other programs: the mod runs one program, the plugin's own reader (`/usr/bin/env` starting `node tools/sim-view.mjs --pane`), so that the pane and an action's preflight can read your hub and run history without your environment.
+- Mod takes, or can take, a permission decision out of the user's hands: the only decision the mod takes is to refuse a Sim action command that you did not type yourself, or whose arguments or preflight fail, and it never approves anything or changes a permission, a tool approval, the permission mode, a setting, Remote Control or an agent.
+- Dependencies install from a lockfile: a Git install runs `npm ci --ignore-scripts` for the four packages `package-lock.json` pins above, and the release ZIP already contains them.
+- Uses a credential from the user's machine: the only credential is the connection file your own hub creates, which the plugin receives as the `connection_file` value you set and which works only against that hub on 127.0.0.1.
+- Name or publisher name may be confused with another listing: ToolsEnabled, Inc. publishes Sim from its own GitHub organization, ToolsEnabled, and has no connection with the directory connector "nabled" that the name check matched.
 
 ## Commands
 

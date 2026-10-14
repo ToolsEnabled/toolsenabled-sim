@@ -2,13 +2,23 @@
 """Generate external Registry/marketplace sidecars only from an already pushed release."""
 import argparse
 import hashlib
+import importlib.util
 import io
 import json
 import re
 import subprocess
-import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
+
+
+def _sibling(name):
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().with_name(name + '.py'))
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
+
+
+# The two release downloads (the signed bundle and the offline ZIP, each compared byte for byte with the supplied file) are
+# read by tools/release_download.py; this file runs git and downloads nothing itself.
+download = _sibling('release_download').download
 
 
 def archive_members(payload, wrapper=''):
@@ -97,16 +107,13 @@ def generate(source, repository, tag, commit, signed, release_url, archive, arch
             raise ValueError('Registry sidecar must not be bundled')
     if not release_url.startswith(repository + '/releases/download/' + tag + '/') or not release_url.endswith('.mcpb'):
         raise ValueError('Expected exact tagged HTTPS mcpb release URL')
-    with urllib.request.urlopen(release_url, timeout=30) as response:
-        downloaded = response.read(64 * 1024 * 1024 + 1)
-    if downloaded != payload:
+    if download(release_url) != payload:
         raise ValueError('Downloaded release bytes differ from supplied signed artifact')
     if not archive_url.startswith(repository + '/releases/download/' + tag + '/') or not archive_url.endswith('.zip'):
         raise ValueError('Expected exact tagged HTTPS offline ZIP URL')
     archive_bytes = archive.read_bytes()
-    with urllib.request.urlopen(archive_url, timeout=30) as response:
-        if response.read(64 * 1024 * 1024 + 1) != archive_bytes:
-            raise ValueError('Downloaded offline ZIP differs from supplied artifact')
+    if download(archive_url) != archive_bytes:
+        raise ValueError('Downloaded offline ZIP differs from supplied artifact')
     tree = bind_archives(git, commit, expected_tree, archive_bytes, payload, manifest)
     digest = hashlib.sha256(payload).hexdigest()
     archive_digest = hashlib.sha256(archive_bytes).hexdigest()

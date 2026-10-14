@@ -247,6 +247,21 @@ class PackagingTests(unittest.TestCase):
             with patch.object(pack,'ROOT',root):
                 with self.assertRaisesRegex(ValueError,'one listing image'): pack.build(root/'unused-cli',root.parent/'unused-output')
 
+    def test_release_download_reads_one_bounded_asset_and_runs_nothing(self):
+        # 0.1.12: generate-release.py's two downloads live in tools/release_download.py, which only reads bytes.
+        fetch=module('release_download');release=module('generate-release')
+        self.assertEqual(fetch.LIMIT,64*1024*1024+1)
+        response=io.BytesIO(b'x'*10);calls=[]
+        class Opened:
+            def __enter__(self):return self
+            def __exit__(self,*a):return False
+            def read(self,n):calls.append(n);return response.read(n)
+        with patch.object(fetch.urllib.request,'urlopen',side_effect=lambda url,timeout:(calls.append((url,timeout)),Opened())[1]):
+            self.assertEqual(fetch.download('https://example.invalid/a.zip'),b'x'*10)
+        self.assertEqual(calls,[('https://example.invalid/a.zip',30),64*1024*1024+1])
+        self.assertFalse(hasattr(release,'urllib'));self.assertTrue(callable(release.download))
+        for name in ('subprocess','os.system','exec(','eval('):self.assertNotIn(name,(ROOT/'tools/release_download.py').read_text())
+
     def test_release_sidecars_bind_both_archives_to_the_reviewed_tree(self):
         release=module('generate-release');repo='https://github.com/ToolsEnabled/toolsenabled-sim'
         with tempfile.TemporaryDirectory() as tmp:
@@ -275,7 +290,7 @@ class PackagingTests(unittest.TestCase):
                 return original(args,**kwargs)
             def download(url,**kwargs):return io.BytesIO(signed.read_bytes() if url.endswith('.mcpb') else archive.read_bytes())
             params=dict(source=source,repository=repo,tag='v0.1.2',commit=commit,expected_tree=tree,signed=signed,release_url=repo+'/releases/download/v0.1.2/sim.mcpb',archive=archive,archive_url=repo+'/releases/download/v0.1.2/sim.zip')
-            with patch.object(release.subprocess,'check_output',side_effect=git),patch.object(release.urllib.request,'urlopen',side_effect=download):
+            with patch.object(release.subprocess,'check_output',side_effect=git),patch.object(release,'download',side_effect=lambda url:download(url).read(64*1024*1024+1)):
                 old=files|{'.claude-plugin/plugin.json':json.dumps(metadata|{'version':'0.1.1'}).encode()}
                 artifacts(zip_files=old)
                 with self.assertRaisesRegex(ValueError,'identity|version'):release.generate(**params,output=base/'old-version')
@@ -295,7 +310,7 @@ class PackagingTests(unittest.TestCase):
                 self.assertEqual(pins['sourceTree'],tree)
                 self.assertEqual(json.loads((out/'marketplace-entry.json').read_text())['source']['sha256'],hashlib.sha256(archive.read_bytes()).hexdigest())
                 with self.assertRaisesRegex(ValueError,'tag'):release.generate(**(params|{'commit':'c'*40}),output=base/'wrong-tag')
-                with patch.object(release.urllib.request,'urlopen',return_value=io.BytesIO(b'tamper')):
+                with patch.object(release,'download',return_value=b'tamper'):
                     with self.assertRaisesRegex(ValueError,'Downloaded'):release.generate(**params,output=base/'wrong-download')
                 for value in ['', 'x'*101]:
                     with self.assertRaisesRegex(ValueError,'description'):release.generate(**params,output=base/'bad-description',description=value)
