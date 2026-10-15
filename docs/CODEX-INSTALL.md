@@ -2,17 +2,17 @@
 
 Use Node.js 22+ and a private hub you own. Start the hub separately and keep it running; the plugin never starts another hub. Give Codex only its assigned connection file, never another robot's or the coordinator's capability. For example, the human runs `node src/hub-cli.mjs --root /absolute/private-run` from a verified source checkout, then sets `SIM_CONNECTION` to the printed absolute connection-file path before launching Codex. Do not paste its contents into a prompt or configuration.
 
-Unreleased branch change: Codex installation and authority guidance; no independent product release.
+The 0.1.13 release candidate combines the reviewed Codex integration with the native Windows work. Publication remains held until its qualification gates pass.
 
-## Install a reviewed branch
+## Install after release publication
 
 ```sh
-codex plugin marketplace add ToolsEnabled/toolsenabled-sim --ref openai-plugin
+codex plugin marketplace add ToolsEnabled/toolsenabled-sim --ref main
 codex plugin add toolsenabled-sim@toolsenabled-sim
 codex mcp list
 ```
 
-Review the exact Git commit first. The next published release is owned by the release lead; this branch has no independent version bump. An existing marketplace may need `codex plugin marketplace upgrade toolsenabled-sim` after a deliberate ref update. Start a new Codex session after installation/configuration changes. The inline transport runs Node from the installed cache and forwards `SIM_CONNECTION`; Claude's `user_config` substitution is not used.
+Review the exact published Git commit first. Before publication, evaluating the combined candidate requires a deliberate `--ref windows-port` instead; the `openai-plugin` branch is the separately reviewed input, not the integrated Windows release. An existing marketplace may need `codex plugin marketplace upgrade toolsenabled-sim` after a deliberate ref update. Start a new Codex session after installation/configuration changes. The inline transport runs Node from the installed cache and forwards `SIM_CONNECTION`; Claude's `user_config` substitution is not used.
 
 Start with a direct request: "Read Sim status and observation for the bound robot. Report its identity, tick and assigned crate; do not mutate the world." The skill is `$toolsenabled-sim:toolsenabled-sim`. A later explicit delivery request may use its actual robot tools with current role/round checks. Use the read-only preflight described in the skill before an action verb, and read back the result.
 
@@ -36,4 +36,4 @@ The plugin calls no model API itself. Codex authentication, subscription eligibi
 
 Uninstall with `codex plugin remove toolsenabled-sim@toolsenabled-sim`. Removing the plugin/cache does not remove external workspaces, runtimes, exported files, retained history or host conversations. Stop owning processes before deleting an external workspace or state directory. Keep a backup if its history is needed. See the product README and SECURITY.md for detailed data and filesystem limits.
 
-[Privacy](https://toolsenabled.ai/privacy/) · [Support](https://toolsenabled.ai/support/). The manifest currently has no `termsOfServiceURL`; source use is covered by the repository MIT LICENSE. No claim is made that a plugin directory's legal review has passed. Linux is the qualified target for this branch; native Windows and macOS qualification are separate gates.
+[Privacy](https://toolsenabled.ai/privacy/) · [Support](https://toolsenabled.ai/support/). The manifest currently has no `termsOfServiceURL`; source use is covered by the repository MIT LICENSE. No claim is made that a plugin directory's legal review has passed. Codex integration evidence was collected on Linux; native Windows runtime qualification and owner-performed live client checks are recorded separately, and macOS is unqualified.
