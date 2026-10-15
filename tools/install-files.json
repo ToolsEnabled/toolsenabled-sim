@@ -117,7 +117,7 @@
   "test/fixtures/v2-budget-trajectory.jsonl": "fa31da8da8bd826475fc56ba6360ac0be832ad394716d9603314b787781a1fcf",
   "test/fixtures/v2-budget.json": "faa8f31d9edd2f1fa2578638b1799649d22faf3d81f8c3b84a984f07d1e2b12c",
   "test/fixtures/windows-ancestor.ps1": "8306b47ba24884225fda9c26452a7caef3c47e3d6d90059eebb3cb978094f27b",
-  "test/fixtures/windows-grant.ps1": "18f7a2718f2aaf25bb52f90bbea21ccf3b72d1d650a5494907b5f1374110d310",
+  "test/fixtures/windows-grant.ps1": "ee613d2b7bfdc4033d92201d81877c010ab3ee6aa7f482eab04896ebe4d86ca4",
   "test/fleet-proof.integration.mjs": "01c3f7792238b2b32dfa2b943caaa1ee7c6384cbe9327fb585b1b273c0baab23",
   "test/guards.test.mjs": "80083149e38d064a2988b26f6dabb9b367408475e35350472561daf7ccf6a126",
   "test/launcher-lines.test.mjs": "3474fd5e19a80fcda370a48dfdca631add396be85f956a0b612dca0d97c02555",
