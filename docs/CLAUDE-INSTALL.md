@@ -131,3 +131,5 @@ Directory review holds: seven dependency files exceed 256 KiB and include minifi
 | `/toolsenabled-sim:reset` | Coordinator: no arguments. Restart everyone's shared world and round; old logs remain. | `$toolsenabled-sim:toolsenabled-sim reset` |
 
 Windows candidate instructions and explicit qualification limits: [WINDOWS.md](WINDOWS.md). Runtime help describes actions and role gates; the command table below remains the human reference for client invocation syntax.
+
+The maintainer handoff scanner retains its ordinary raw key-header, size/depth, archive, decompression-limit and trailing-data checks. LZMA-alone has no magic; only the exact SHA256-and-length-pinned MuJoCo WebAssembly bytes resolve a known corrupt-header guess before any decoded output. This reviewed immutable-file disambiguation is not a generic WASM/header/filename exception. Changed bytes, arbitrary valid WASM, memory failures, errors after output and real compressed streams keep the same refusal/inspection rules. The module's original registry provenance and selected-file SHA256 remain unchanged; this does not clear the directory's binary/minified-code review holds.

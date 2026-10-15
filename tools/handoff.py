@@ -17,6 +17,20 @@ from pathlib import Path, PurePosixPath
 
 MAX_FILE = 64 * 1024 * 1024
 MAX_EXPANDED = 512 * 1024 * 1024
+# LZMA-alone has no magic. This one immutable, validated upstream WASM blob
+# collides with its tentative header heuristic and emits no LZMA bytes before
+# corruption at the header. The digest/size also match dependency-files.json.
+# This is not a filename/header exemption or an exception for arbitrary WASM.
+REVIEWED_WASM_LZMA_COLLISIONS = {
+    '2d380f1070a556c3003b4a7c7c10c98a5f61db4e91815de1075ec478e9487e76': 10313475,
+}
+
+
+def reviewed_wasm_lzma_collision(data):
+    return (data.startswith(b'\x00asm\x01\x00\x00\x00')
+            and len(data) in REVIEWED_WASM_LZMA_COLLISIONS.values()
+            and REVIEWED_WASM_LZMA_COLLISIONS.get(hashlib.sha256(data).hexdigest()) == len(data))
+
 KEY = re.compile(b'BEGIN'.join([b'-----', b' (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----|---- ', b' SSH2 ENCRYPTED PRIVATE KEY ----']))
 
 def safe_name(name):
@@ -88,10 +102,15 @@ def scan(root):
                 else:
                     decoded = decoder.decompress(data, MAX_FILE + 1)
             except (zlib.error, OSError, EOFError, lzma.LZMAError) as error:
-                # LZMA-alone has no magic. Its header heuristic also matches
-                # ordinary binary files. Only format rejection before any output
-                # disproves that guess; corruption and memory failures refuse.
-                if tentative_lzma and not decoded and isinstance(error, lzma.LZMAError) and str(error) == 'Input format not supported by decoder':
+                # Generic corruption and memory failures still refuse. Resolve
+                # a zero-output corrupt-header ambiguity only for the exact
+                # reviewed WASM bytes above. Raw KEY/size/depth checks already
+                # ran, and any output prevents this exception. Real streams,
+                # changed modules and other WASM retain the ordinary rules.
+                rejected_format = str(error) == 'Input format not supported by decoder'
+                reviewed_collision = (str(error) == 'Corrupt input data'
+                                      and reviewed_wasm_lzma_collision(data))
+                if tentative_lzma and not decoded and isinstance(error, lzma.LZMAError) and (rejected_format or reviewed_collision):
                     decoder = None
                 else:
                     raise ValueError('invalid compressed stream refused: ' + name) from error

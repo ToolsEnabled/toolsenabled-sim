@@ -128,6 +128,51 @@ class PackagingTests(unittest.TestCase):
             root=Path(tmp);(root/'notes.txt').write_bytes(payload)
             with self.assertRaisesRegex(ValueError,'invalid compressed stream refused'):handoff.scan(root)
 
+    def test_reviewed_wasm_collision_is_exact_and_does_not_hide_keys(self):
+        handoff = module('handoff')
+        wasm = (ROOT/'node_modules/@mujoco/mujoco/mujoco.wasm').read_bytes()
+        expected = json.loads((ROOT/'tools/dependency-files.json').read_text())['@mujoco/mujoco']['files']['mujoco.wasm']['sha256']
+        self.assertEqual(hashlib.sha256(wasm).hexdigest(), expected)
+        self.assertEqual(handoff.REVIEWED_WASM_LZMA_COLLISIONS, {expected:len(wasm)})
+        validate = ['node','--input-type=module','-e',"import fs from 'node:fs';console.log(WebAssembly.validate(fs.readFileSync(0)))"]
+        self.assertEqual(subprocess.check_output(validate,input=wasm,timeout=10).strip(), b'true')
+        sentinel = b'-----BEGIN '+b'PRIVATE KEY-----\nsynthetic\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);file=root/'renamed.data';file.write_bytes(wasm)
+            self.assertEqual(handoff.scan(root)['privateKeyHeaders'],0)
+            changed=bytearray(wasm);changed[-1]^=1;file.write_bytes(changed)
+            with self.assertRaisesRegex(ValueError,'invalid compressed'):handoff.scan(root)
+            file.write_bytes(wasm+sentinel)
+            with self.assertRaisesRegex(ValueError,'private-key header'):handoff.scan(root)
+            file.write_bytes(wasm);(root/'another.data').write_bytes(gzip.compress(sentinel))
+            with self.assertRaisesRegex(ValueError,'private-key header'):handoff.scan(root)
+            (root/'another.data').unlink()
+            # A valid arbitrary WASM container with a compressed key is not the
+            # reviewed immutable module, even though its header and format match.
+            compressed=lzma.compress(sentinel,format=lzma.FORMAT_ALONE)
+            payload=b'\x00'+compressed  # empty custom-section name
+            self.assertLess(len(payload),128)
+            polyglot=b'\x00asm\x01\x00\x00\x00'+b'\x00'+bytes([len(payload)])+payload
+            self.assertEqual(subprocess.check_output(validate,input=polyglot,timeout=10).strip(),b'true')
+            self.assertIsNone(handoff.KEY.search(polyglot));file.write_bytes(polyglot)
+            with self.assertRaisesRegex(ValueError,'invalid compressed'):handoff.scan(root)
+
+    def test_reviewed_wasm_never_waives_decoder_output_or_memory_errors(self):
+        handoff=module('handoff')
+        wasm=(ROOT/'node_modules/@mujoco/mujoco/mujoco.wasm').read_bytes()
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'module.wasm').write_bytes(wasm)
+            with patch.object(handoff.lzma,'LZMADecompressor') as factory:
+                factory.return_value.eof=False
+                factory.return_value.decompress.side_effect=[b'output',lzma.LZMAError('Corrupt input data')]
+                with self.assertRaisesRegex(ValueError,'invalid compressed'):handoff.scan(root)
+            with patch.object(handoff.lzma,'LZMADecompressor') as factory:
+                factory.return_value.eof=False
+                factory.return_value.decompress.side_effect=lzma.LZMAError('Memory usage limit exceeded')
+                with self.assertRaisesRegex(ValueError,'invalid compressed'):handoff.scan(root)
+            with patch.object(handoff,'MAX_FILE',1024):
+                with self.assertRaisesRegex(ValueError,'oversize'):handoff.scan(root)
+
     def test_scanner_accepts_its_own_packaged_source(self):
         handoff = module('handoff')
         with tempfile.TemporaryDirectory() as tmp:

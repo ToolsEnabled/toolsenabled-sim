@@ -2,6 +2,8 @@
 
 ## 0.1.13
 
+- Resolve the maintainer handoff scanner's LZMA-alone false classification only for the exact pinned MuJoCo WASM bytes before any output. Raw-key, compression, size and corruption refusals remain in force; regressions cover altered modules and a valid-WASM compressed-key container.
+
 - Prepare native Windows private state and file reads with per-user DACLs, handle identity binding, all-ancestor owner/access checks and conservative unsupported-ACE refusal. Linux ownership checks remain enforced.
 - Prepare a clean-environment Windows pane reader in a dedicated Job Object, portable PowerShell/cmd installation, local-drive path checks and console signal handling. Native acceptance remains pending; Windows 11 and desktop GUI clients are not qualified.
 - Git and archive installs now contain the same exact reviewed dependency files. No root npm installer or lockfile is needed; tools/upstream-npm-inputs.json retains original registry integrity and tools/dependency-files.json retains selected-file hashes.
