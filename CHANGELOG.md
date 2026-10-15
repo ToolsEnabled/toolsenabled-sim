@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — Codex branch
+
+- Document reviewed-branch marketplace installation, real MCP setup, human authority, retained local data and host-specific limits.
+
 ## 0.1.13
 
 - Resolve the maintainer handoff scanner's LZMA-alone false classification only for the exact pinned MuJoCo WASM bytes before any output. Raw-key, compression, size and corruption refusals remain in force; regressions cover altered modules and a valid-WASM compressed-key container.
