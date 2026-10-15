@@ -124,7 +124,7 @@
   "test/live.test.mjs": "1690f545674e41dfbd8ee249ea2efb6de32d3166f4374e97eaf399fb1d5c6c54",
   "test/mcp.test.mjs": "c59fa2e03cc4e019e378ef388f9f39bafbccfeb24a181d3c921134ffabace7f4",
   "test/motion-budget.test.mjs": "9e2d859b700d8d56deb27c97caca87eeb88bebb5fa54685d43c27da8c97d54bd",
-  "test/mujoco.test.mjs": "a0780ffcef44ce29c07ac40d153945059cad25715466883741d7fed73057f059",
+  "test/mujoco.test.mjs": "e0f7759d5abdb346fb3cd287805ceac444a181c48baa0e3e0cc46bcd52ab29ac",
   "test/packaging-tools.test.py": "47f8b5a40cfe336c6628d5e71f4e71bef8a74c5aaaf555354edcc3b8baedb2cf",
   "test/pane-env.test.mjs": "0721f2e3405dbc9725da7b0b6d44b4ab8a37b70c82c84e200463916c441fad50",
   "test/patch.test.mjs": "bee86e13ba44f6485a87fbd1b31dc8e69444b856bfd27ffc35b2238473a0b646",

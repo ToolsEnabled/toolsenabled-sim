@@ -4,12 +4,13 @@ import {mkdtemp,readFile,readdir,rm,writeFile} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {createSim,verifyTrajectory,replayActions,hash,canonical} from '../src/sim.mjs';
 import {createWorld,ENGINES} from '../src/engines/index.mjs';
 import {startHub,defaultScenario,defaultAssignments} from '../src/hub.mjs';
 import {runDemo} from '../tools/demo.mjs';
 // The MuJoCo engine option: headless, in-process plus the real CLIs; no browser.
-const root=new URL('../',import.meta.url).pathname;
+const root=fileURLToPath(new URL('../',import.meta.url));
 const MUJOCO='mujoco@3.14.0',REFUSAL='Unknown physics engine: use rapier or mujoco';
 const boss={role:'coordinator',agentId:'coordinator'},who=id=>({role:'robot',agentId:`script-${id}`,robotId:id});
 const setup=extra=>{const scenario=defaultScenario();return createSim({scenario,assignments:defaultAssignments(scenario),...extra});};
