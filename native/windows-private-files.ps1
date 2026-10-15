@@ -17,14 +17,14 @@ function Plain-DirectoryPath([string]$value, [bool]$allowFile=$false) {
   Assert-PlainLocalInput $value
   $full = [IO.Path]::GetFullPath($value)
   $current = [IO.Path]::GetPathRoot($full)
-  if ($script:checkedAncestors.Add($current)) { Assert-AncestorSecurity (Read-DirectorySecurity $current) }
+  if ($script:checkedAncestors.Add($current)) { $null=[SimFileHandle]::Inspect($current); Assert-AncestorSecurity (Read-DirectorySecurity $current) }
   foreach ($part in $full.Substring($current.Length).Split('\', [StringSplitOptions]::RemoveEmptyEntries)) {
     if ($part -match '[<>"|?*\x00-\x1f]' -or $part -match '[. ]$' -or $part -match '^(?i:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)') { Refuse-Security 'The directory name is not supported on Windows.' }
     $current = [IO.Path]::Combine($current, $part)
     if ([IO.File]::Exists($current) -and (!$allowFile -or $current -cne $full)) { Refuse-Security 'A directory path names a file.' }
     if ([IO.Directory]::Exists($current)) {
       if (([IO.File]::GetAttributes($current) -band [IO.FileAttributes]::ReparsePoint) -ne 0) { Refuse-Security 'Directory paths must not traverse reparse points or junctions.' }
-      if ($script:checkedAncestors.Add($current)) { Assert-AncestorSecurity (Read-DirectorySecurity $current) }
+      if ($script:checkedAncestors.Add($current)) { $null=[SimFileHandle]::Inspect($current); Assert-AncestorSecurity (Read-DirectorySecurity $current) }
     }
   }
   return $full
@@ -96,6 +96,7 @@ try {
   if (!$paths.Count -or $paths.Count -gt 8192 -or @($paths | Where-Object { $_ -isnot [string] }).Count) { Refuse-Security 'The path list is invalid.' }
   $script:userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User
   $script:checkedAncestors = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+  Add-Type -Path (Join-Path $PSScriptRoot 'windows-file-handle.cs')
   if ($request.operation -ceq 'create-directory') {
     if ($paths.Count -ne 1) { Refuse-Security 'Create one private directory at a time.' }
     $directory = Plain-DirectoryPath $paths[0]
@@ -104,14 +105,13 @@ try {
     $security = Read-DirectorySecurity $directory
     if (!$security.ownedByUser -or !$security.private -or !$security.writeRestricted) { Refuse-Security 'The private directory must belong to this account with a private DACL.' }
   }
-  Add-Type -Path (Join-Path $PSScriptRoot 'windows-file-handle.cs')
   $entries = New-Object System.Collections.Generic.List[object]
   foreach ($requested in $paths) {
     $full = Plain-DirectoryPath $requested $true
     $metadata = [SimFileHandle]::Inspect($full)
     $raw = New-Object Security.AccessControl.RawSecurityDescriptor($metadata.Security,0)
     $security = Assess-RawSecurityDescriptor $raw $script:userSid.Value
-    $entries.Add(@{path=$requested;fileId=$metadata.FileId;volume=$metadata.Volume;links=$metadata.Links;directory=$metadata.Directory;security=$security})
+    $entries.Add(@{path=$requested;fileId=$metadata.FileId;volume=$metadata.Volume;links=$metadata.Links;directory=$metadata.Directory;fileSystem=$metadata.FileSystem;fixedDrive=$metadata.FixedDrive;security=$security})
   }
   [Console]::WriteLine((@{ok=$true;entries=@($entries.ToArray())}|ConvertTo-Json -Depth 6 -Compress))
 } catch {

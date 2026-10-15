@@ -21,7 +21,7 @@ function query(paths,operation='inspect',{exclusive=false}={}){
  if(result.error||result.status!==0||answer?.ok!==true||!Array.isArray(answer.entries)||answer.entries.length!==paths.length)throw Error('Windows private file ownership, ACL or identity could not be verified.');
  for(let i=0;i<paths.length;i++){
   const entry=answer.entries[i],security=entry?.security;
-  if(entry?.path!==paths[i]||!/^\d+$/.test(entry.fileId||'')||!/^\d+$/.test(entry.volume||'')||!Number.isInteger(entry.links)||typeof entry.directory!=='boolean'||!security||['private','ownerTrusted','ownedByUser','writeRestricted','ancestorControlRestricted'].some(k=>typeof security[k]!=='boolean'))throw Error('Windows security helper returned an invalid identity.');
+  if(entry?.path!==paths[i]||!/^\d+$/.test(entry.fileId||'')||!/^\d+$/.test(entry.volume||'')||!Number.isInteger(entry.links)||typeof entry.directory!=='boolean'||entry.fileSystem!=='NTFS'||entry.fixedDrive!==true||!security||['private','ownerTrusted','ownedByUser','writeRestricted','ancestorControlRestricted'].some(k=>typeof security[k]!=='boolean'))throw Error('Windows security helper returned an invalid identity.');
   inspected.set(paths[i],entry);
  }
 }
@@ -31,7 +31,7 @@ export function createWindowsPrivateDirectory(path,{exclusive=false}={}){path=wi
 export function verifyWindowsEntry(entry,stat,{directory=false,readable=false,ownedDirectory=false}={}){
  const security=entry?.security;
  const matches=entry&&entry.fileId===String(stat.ino)&&entry.volume===String(stat.dev);
- if(!matches||entry.directory!==directory||!directory&&entry.links!==1||!security?.ownerTrusted||!security.writeRestricted||!readable&&!security.private||(!directory||ownedDirectory)&&!security.ownedByUser)throw Error('Windows private file ownership, ACL or identity was refused.');
+ if(!matches||entry.fileSystem!=='NTFS'||entry.fixedDrive!==true||entry.directory!==directory||!directory&&entry.links!==1||!security?.ownerTrusted||!security.writeRestricted||!readable&&!security.private||(!directory||ownedDirectory)&&!security.ownedByUser)throw Error('Windows private file ownership, ACL or identity was refused.');
  return entry;
 }
 export function checkWindowsPath(path,stat,{directory=false,readable=false,ownedDirectory=false}={}){

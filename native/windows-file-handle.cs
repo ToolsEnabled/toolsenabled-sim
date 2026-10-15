@@ -1,6 +1,8 @@
 using System;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
@@ -24,6 +26,10 @@ public static class SimFileHandle {
   private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out Information info);
   [DllImport("kernel32.dll", SetLastError=true)]
   private static extern uint GetFileType(SafeFileHandle handle);
+  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  private static extern uint GetDriveTypeW(string root);
+  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+  private static extern bool GetVolumeInformationByHandleW(SafeFileHandle handle, StringBuilder volumeName, uint volumeSize, IntPtr serial, IntPtr maximumComponent, IntPtr flags, StringBuilder fileSystem, uint fileSystemSize);
   [DllImport("advapi32.dll", SetLastError=true)]
   private static extern uint GetSecurityInfo(SafeFileHandle handle, int objectType, uint securityInfo, out IntPtr owner, out IntPtr group, out IntPtr dacl, out IntPtr sacl, out IntPtr descriptor);
   [DllImport("advapi32.dll", SetLastError=true)]
@@ -37,8 +43,11 @@ public static class SimFileHandle {
     public uint Links;
     public bool Directory;
     public byte[] Security;
+    public string FileSystem;
+    public bool FixedDrive;
   }
   public static Metadata Inspect(string path) {
+    if (GetDriveTypeW(Path.GetPathRoot(path))!=3) throw new InvalidOperationException("FIXED_LOCAL_DRIVE_REQUIRED");
     // READ_CONTROL | FILE_READ_ATTRIBUTES. OPEN_REPARSE_POINT opens the last
     // component itself; no link payload is read. Ancestors are checked by the
     // caller. BACKUP_SEMANTICS permits a directory handle without privileges.
@@ -48,6 +57,8 @@ public static class SimFileHandle {
       if (!GetFileInformationByHandle(handle, out info)) throw new InvalidOperationException("FILE_IDENTITY_UNAVAILABLE");
       if ((info.Attributes & 0x400)!=0) throw new InvalidOperationException("REPARSE_POINT_REFUSED");
       bool directory=(info.Attributes & 0x10)!=0;
+      StringBuilder fileSystem=new StringBuilder(32);
+      if (!GetVolumeInformationByHandleW(handle,null,0,IntPtr.Zero,IntPtr.Zero,IntPtr.Zero,fileSystem,(uint)fileSystem.Capacity) || !String.Equals(fileSystem.ToString(),"NTFS",StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("LOCAL_NTFS_REQUIRED");
       if (!directory && info.Links!=1) throw new InvalidOperationException("HARD_LINK_REFUSED");
       IntPtr owner,group,dacl,sacl,descriptor;
       uint result=GetSecurityInfo(handle,1,5,out owner,out group,out dacl,out sacl,out descriptor);
@@ -58,7 +69,7 @@ public static class SimFileHandle {
         byte[] bytes=new byte[length]; Marshal.Copy(descriptor,bytes,0,(int)length);
         ulong fileId=((ulong)info.IndexHigh<<32)|info.IndexLow;
         if (fileId==0) throw new InvalidOperationException("FILE_IDENTITY_UNAVAILABLE");
-        return new Metadata {FileId=fileId.ToString(CultureInfo.InvariantCulture),Volume=info.Volume.ToString(CultureInfo.InvariantCulture),Links=info.Links,Directory=directory,Security=bytes};
+        return new Metadata {FileId=fileId.ToString(CultureInfo.InvariantCulture),Volume=info.Volume.ToString(CultureInfo.InvariantCulture),Links=info.Links,Directory=directory,Security=bytes,FileSystem=fileSystem.ToString().ToUpperInvariant(),FixedDrive=true};
       } finally {LocalFree(descriptor);}
     }
   }

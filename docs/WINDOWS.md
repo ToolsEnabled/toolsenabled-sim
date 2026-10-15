@@ -23,7 +23,7 @@ Git installs contain the same reviewed dependency bytes as the ZIP. No npm insta
 
 ## Prepare a private hub and client
 
-Use a normal, non-elevated account and a private local drive. From the installed program folder:
+Use a normal, non-elevated account and a private fixed local NTFS drive. From the installed program folder:
 
 ```powershell
 node .\src\hub-cli.mjs --root "$env:LOCALAPPDATA\ToolsEnabled\Sim\runs\manual-01"
@@ -42,7 +42,7 @@ Then follow [CLAUDE-INSTALL.md](CLAUDE-INSTALL.md) or [COMMANDS.md](COMMANDS.md)
 
 Private directories require current-user ownership and a private DACL allowing only that user, SYSTEM and Administrators. Existing ACLs are inspected without repair. Every existing ancestor must have a trusted owner (current user, SYSTEM or Administrators) and must deny other accounts replacement, DACL/owner changes and attribute changes; normal read and sibling-creation grants alone do not grant replacement authority. Unknown, object and callback ACEs, null DACLs and unknown owners refuse. No unmeasured service-SID exception is enabled, so an otherwise safe service-owned ancestor can refuse.
 
-File reads open the Node descriptor first, inspect the named Windows file using `OPEN_REPARSE_POINT`, and bind exact 64-bit volume/file identity to that open descriptor before reading bytes. Private files require current-user ownership, private/nonwritable ACLs, disk-file type and one link. Scenario files may be readable by others but must remain current-user-owned and nonwritable by other accounts. Junctions/reparse points, UNC/device/ADS/drive-relative paths and hardlinked private files refuse. This is an OS-account boundary; agents with file/shell tools under the same account can still read that account's private files. SYSTEM and Administrators remain trusted.
+File reads open the Node descriptor first, inspect the named Windows file using `OPEN_REPARSE_POINT`, and bind exact 64-bit volume/file identity to that open descriptor before reading bytes. Private files require current-user ownership, private/nonwritable ACLs, disk-file type and one link. Scenario files may be readable by others but must remain current-user-owned and nonwritable by other accounts. Junctions/reparse points, UNC/device/ADS/drive-relative paths and hardlinked private files refuse. GetDriveTypeW must identify a fixed drive before opening a component, and GetVolumeInformationByHandleW must identify NTFS on every inspected handle, including existing ancestors before directory creation. Remote/mapped, removable, RAM and other filesystem volumes refuse without a fallback. Actual native rejection still requires proof. This is an OS-account boundary; agents with file/shell tools under the same account can still read that account's private files. SYSTEM and Administrators remain trusted.
 
 The Windows pane clears inherited environment variables before Node starts. Its fixed child waits for nonempty input until the parent assigns a Job Object, then imports Sim. Closing the job kills that reader and its descendants. The wrapper bounds the child to 10 seconds; the pane bounds the wrapper to 12 seconds. Linux retains its pre-Node `env -i` scrub. API keys and `NODE_OPTIONS` are not forwarded. The request passes through stdin, never executable command text.
 

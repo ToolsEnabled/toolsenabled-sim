@@ -6,10 +6,10 @@ import {verifyWindowsEntry,windowsLocalPath} from '../src/windows-files.mjs';
 
 const fileId=9007199254741001n,volume=4294967295n;
 const stat={ino:fileId,dev:volume};
-const entry=()=>({fileId:String(fileId),volume:String(volume),links:1,directory:false,security:{ownerTrusted:true,ownedByUser:true,private:true,writeRestricted:true,ancestorControlRestricted:true}});
+const entry=()=>({fileId:String(fileId),volume:String(volume),links:1,directory:false,fileSystem:'NTFS',fixedDrive:true,security:{ownerTrusted:true,ownedByUser:true,private:true,writeRestricted:true,ancestorControlRestricted:true}});
 test('Windows descriptor binding preserves exact 64-bit identity and rejects another file or volume',()=>{
  assert.equal(verifyWindowsEntry(entry(),stat).fileId,String(fileId));
- for(const change of [{fileId:String(fileId+1n)},{volume:'1'},{links:2},{directory:true}])assert.throws(()=>verifyWindowsEntry({...entry(),...change},stat),/refused/);
+ for(const change of [{fileId:String(fileId+1n)},{volume:'1'},{links:2},{directory:true},{fileSystem:'ReFS'},{fixedDrive:false}])assert.throws(()=>verifyWindowsEntry({...entry(),...change},stat),/refused/);
  assert.throws(()=>verifyWindowsEntry(entry(),{ino:Number(fileId),dev:volume}),/refused/);
 });
 test('private Windows reads require current owner and private ACLs; scenario reads may be public but not writable',()=>{
