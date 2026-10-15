@@ -2,6 +2,8 @@
 
 Use Node.js 22+ and a private hub you own. Start the hub separately and keep it running; the plugin never starts another hub. Give Codex only its assigned connection file, never another robot's or the coordinator's capability. For example, the human runs `node src/hub-cli.mjs --root /absolute/private-run` from a verified source checkout, then sets `SIM_CONNECTION` to the printed absolute connection-file path before launching Codex. Do not paste its contents into a prompt or configuration.
 
+Unreleased branch change: Codex installation and authority guidance; no independent product release.
+
 ## Install a reviewed branch
 
 ```sh
