@@ -1,5 +1,7 @@
 # ToolsEnabled Sim
 
+Codex setup and limits: [docs/CODEX-INSTALL.md](docs/CODEX-INSTALL.md).
+
 Linux tested. Native Windows candidate: implementation prepared, acceptance pending. See [Windows installation and qualification](docs/WINDOWS.md).
 
 A shared warehouse for three or four wheeled robots. Each agent controls one robot through MCP; a coordinator assigns crates and advances the world in lockstep. Rapier runs the physics in Node by default; `--engine mujoco` runs the same warehouse on MuJoCo. Three.js replays the resulting log into first-person, chase, overhead and combined views, without a model or internet connection.
