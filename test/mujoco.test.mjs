@@ -26,7 +26,7 @@ test('MuJoCo: same actions produce exact bytes, a full physics replay is byte-id
  }finally{for(const s of [a,b,r])s.close();}
 });
 test('MuJoCo: engine ids match the pinned dependencies and every run header records the engine; the verifier rejects unknown engines and non-Rapier version-1 headers',async()=>{
- const deps=JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8')).dependencies;
+ const inventory=JSON.parse(await readFile(new URL('../tools/dependency-files.json',import.meta.url),'utf8'));const deps=Object.fromEntries(Object.entries(inventory).map(([name,entry])=>[name,entry.version]));
  assert.deepEqual(ENGINES,{rapier:`rapier3d-compat@${deps['@dimforge/rapier3d-compat']}`,mujoco:`mujoco@${deps['@mujoco/mujoco']}`});assert.equal(ENGINES.mujoco,MUJOCO);
  const d=await setup();try{assert.equal(d.header.engine,ENGINES.rapier);}finally{d.close();}
  await assert.rejects(setup({formatVersion:1,engine:'mujoco'}),{message:'Version-1 recordings require the rapier engine'});const v1=await setup({formatVersion:1});try{assert.equal(v1.header.version,1);assert.equal(v1.header.engine,ENGINES.rapier);}finally{v1.close();}

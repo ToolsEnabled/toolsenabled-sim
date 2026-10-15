@@ -10,12 +10,11 @@ const cli=resolve('tools/sim-view.mjs');
 const run=(args,env={},input='')=>new Promise(resolve=>{const p=spawn(process.execPath,[cli,...args,'--json'],{env,stdio:['pipe','pipe','pipe']});let out='',err='';p.stdout.on('data',b=>out+=b);p.stderr.on('data',b=>err+=b);p.on('close',code=>{let body;try{body=JSON.parse(out);}catch{}resolve({code,body,out,err});});p.stdin.end(input);});
 const step=async(hub,n)=>{const c=new McpClient(hub.connections.coordinator);try{await c.initialize();return await c.call('sim.step',{n});}finally{await c.close();}};
 async function setup(live=false){const root=await mkdtemp(join(tmpdir(),'sim-audit-view-'));const hub=await startHub({root,...(live?{live:{budgetMs:120000}}:{})});return {root,hub,env:role=>({SIM_CONNECTION:hub.connections[role],SIM_RUN_ROOT:root}),async close(){await hub.close();await rm(root,{recursive:true,force:true});}};}
-test('help works without configuration and prints native actions and exact Codex skill names',async()=>{
+test('help works without configuration and describes every view and role-gated action without executable client prompts',async()=>{
  let offset=0;const rows=[];
  do{const r=await run(['help','--offset',String(offset)]);assert.equal(r.code,0,r.err);rows.push(...r.body.rows);offset=r.body.nextOffset;}while(offset!==null);
- const text=JSON.stringify(rows);for(const name of ['help','map','scenarios','replay','connection'])assert.ok(text.includes('/sim '+name));
- for(const name of ['deliver','move','hold','submit','reset','step','assign','scenario'])assert.ok(text.includes('/toolsenabled-sim:'+name));
- assert.ok(text.includes('$toolsenabled-sim:toolsenabled-sim'));
+ const text=JSON.stringify(rows);for(const name of ['help','map','scenarios','replay','connection','deliver','move','hold','submit','reset','step','assign','scenario'])assert.ok(rows.some(row=>row.id===name));
+ assert.ok(text.includes('docs/COMMANDS.md'));assert.doesNotMatch(text,/Codex:|!node|\$toolsenabled|\/toolsenabled-sim:/);
 });
 test('peers expose only poses and holding while the bound robot has its own mapping',async()=>{
  const f=await setup();try{

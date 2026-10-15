@@ -1,3 +1,4 @@
+import {shellArgument as quote} from '../src/shell-argument.mjs';
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -5,7 +6,6 @@ import {startHub,defaultScenario} from '../src/hub.mjs';
 import {validateAssignments} from '../src/sim.mjs';
 import {runHubCli,absoluteInputPath,runCli} from '../src/cli-lifecycle.mjs';
 import {connectionConfig,formatConfig} from './mcp-config.mjs';
-const quote=value=>`'${String(value).replaceAll("'", "'\\''")}'`;
 export function registration(identity,connection){
  const config=connectionConfig(connection);
  return {...identity,connection:resolve(connection),claudeCode:{command:`claude mcp add-json --scope local toolsenabled_sim ${quote(JSON.stringify({...config,type:'stdio'}))}`,config:JSON.parse(formatConfig('claude',connection))},codex:{command:`codex mcp add toolsenabled_sim --env ${quote('SIM_CONNECTION='+config.env.SIM_CONNECTION)} -- ${[config.command,...config.args].map(quote).join(' ')}`,config:formatConfig('codex',connection)}};
@@ -26,7 +26,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
  const budgetMs=Number(values['--budget-seconds']??120)*1000,stepTicks=Number(values['--step-ticks']??60);
  await runHubCli(()=>launchLive({root:resolve(values['--root']),assignments:JSON.parse(readFileSync(values['--work-record'],'utf8')).assignments,scenario:values['--scenario']?JSON.parse(readFileSync(values['--scenario'],'utf8')):defaultScenario(),budgetMs,stepTicks,activeRobots:values['--active']?.split(','),maxTicks:Number(values['--max-ticks']??36000),engine:values['--engine']??'rapier'}),({hub,registrations})=>{
  const report={mode:'live',budgetMs,stepTicks,runDir:hub.runDir,registrationInstructions:'Choose one host per agent. Give it only its own registration. Separate profiles organize settings; separate OS accounts or sandboxes provide isolation (SECURITY.md). Commands are printed, never executed. The first round budget is running now.',agentInstructions:'Read sim.status and sim.observe. Copy live.round into each robot command. Call robot.submit with robotId and round after your commands, even when continuing an existing goto. Reobserve if the round changed. Missing robots hold on deadline.',registrations};
- console.log(values['--json']?JSON.stringify(report,null,2):[`Live run: ${hub.runDir} (${budgetMs/1000}s budget, ${stepTicks} ticks/step)`,report.registrationInstructions,report.agentInstructions,...registrations.flatMap(r=>['',`role=${r.role} agentId=${r.agentId}${r.robotId?' robotId='+r.robotId:''}`,`Connection: ${r.connection}`,'Claude Code (POSIX):',r.claudeCode.command,'Codex (POSIX):',r.codex.command])].join('\n'));
+ console.log(values['--json']?JSON.stringify(report,null,2):[`Live run: ${hub.runDir} (${budgetMs/1000}s budget, ${stepTicks} ticks/step)`,report.registrationInstructions,report.agentInstructions,...registrations.flatMap(r=>['',`role=${r.role} agentId=${r.agentId}${r.robotId?' robotId='+r.robotId:''}`,`Connection: ${r.connection}`,process.platform==='win32'?'Claude Code (PowerShell):':'Claude Code (POSIX):',r.claudeCode.command,process.platform==='win32'?'Codex (PowerShell):':'Codex (POSIX):',r.codex.command])].join('\n'));
  });
  });
 }

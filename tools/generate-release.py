@@ -63,7 +63,7 @@ def bind_archives(git, commit, expected_tree, archive_bytes, payload, manifest):
     for name,dependency in inventory.items():
         for relative,entry in dependency['files'].items():
             path='node_modules/'+name+'/'+relative
-            if path in tracked or path in vendored or '..' in PurePosixPath(path).parts:raise ValueError('Invalid dependency inventory')
+            if path not in tracked or path in vendored or '..' in PurePosixPath(path).parts:raise ValueError('Invalid dependency inventory')
             vendored[path]=entry['sha256']
     if zipped.keys()!=tracked.keys()|vendored.keys():raise ValueError('Archive members differ from reviewed tree and dependency inventory')
     for name,oid in tracked.items():
@@ -125,7 +125,7 @@ def generate(source, repository, tag, commit, signed, release_url, archive, arch
                 'version': manifest['version'], 'websiteUrl': 'https://toolsenabled.ai',
                 'repository': {'url': repository, 'source': 'github'},
                 'packages': [{'registryType': 'mcpb', 'identifier': release_url, 'fileSha256': digest, 'transport': {'type': 'stdio'}}]}
-    # Sim's Git tag is dependency-incomplete; install the reviewed offline ZIP.
+    # The verified offline ZIP and Git tree contain the same reviewed runtime inputs.
     entry = {'name': name, 'source': {'source': 'archive', 'url': archive_url, 'sha256': archive_digest}}
     pins = {'status': 'pushed-release', 'repository': repository, 'tag': tag, 'sourceCommit': commit,
             'sourceTree': tree, 'expectedTree': expected_tree, 'archiveMembersVerified': True, 'signedMcpbSha256': digest,

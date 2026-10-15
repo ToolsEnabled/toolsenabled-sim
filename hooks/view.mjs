@@ -3,13 +3,14 @@ import {views,actions,helpRows} from '../src/command-catalog.mjs';
 export {views,actions};
 export const usage='Views: /sim help|status|robots|map|runs|events|scenarios|replay|connection. Actions: /toolsenabled-sim:deliver, :move, :hold, :submit, :step, :assign, :scenario, :reset (see /sim help for full names and role gates).';
 const id=s=>/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,47}$/.test(s);
+const absolutePath=s=>s.startsWith('/')||/^[A-Za-z]:[\\/]/.test(s)&&!s.slice(2).includes(':');
 const coordinate=s=>/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(s)&&Math.abs(+s)<=30;
 export function commandInput(input){
  if(typeof input!=='string'||input.length>4096||/[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u.test(input))return null;
  const parts=input.trim().split(/ +/),verb=parts.shift()||'status';
  if(views.includes(verb)){
   if(['events','replay'].includes(verb)&&parts.length===1&&/^run-\d{4,10}$/.test(parts[0]))return {kind:'view',verb,run:parts[0]};
-  if(verb==='scenarios'&&parts.length&&parts.join(' ').startsWith('/'))return {kind:'view',verb,check:parts.join(' ')};
+  if(verb==='scenarios'&&parts.length&&absolutePath(parts.join(' ')))return {kind:'view',verb,check:parts.join(' ')};
   return parts.length?null:{kind:'view',verb};
  }
  if(['deliver','hold'].includes(verb)&&parts.length<=1&&(!parts.length||id(parts[0])))return {kind:'action',verb,args:parts};
@@ -17,12 +18,12 @@ export function commandInput(input){
  if(verb==='step'&&parts.length<=1&&(!parts.length||/^\d+$/.test(parts[0])&&+parts[0]>=1&&+parts[0]<=60))return {kind:'action',verb,args:parts.map(Number)};
  if(verb==='move'&&(parts.length===2||parts.length===3&&id(parts[0]))&&parts.slice(-2).every(coordinate))return {kind:'action',verb,args:[...(parts.length===3?[parts[0]]:[]),...parts.slice(-2).map(Number)]};
  if(verb==='assign'&&parts.length===4&&parts.slice(0,2).every(id)&&parts.slice(2).every(s=>/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(s)))return {kind:'action',verb,args:parts};
- if(verb==='scenario'&&parts.length&&parts.join(' ').startsWith('/'))return {kind:'action',verb,args:[parts.join(' ')]};
+ if(verb==='scenario'&&parts.length&&absolutePath(parts.join(' ')))return {kind:'action',verb,args:[parts.join(' ')]};
  return null;
 }
 export function localHelp(query={}){
  const rows=helpRows(),offset=Number(query.offset)||0;
- return {schema:'ai.toolsenabled/sim-view/v1',view:'help',run:null,stream:'all',identity:{role:'observer',agentId:'unbound'},summary:['Commands · role checks precede model actions','Codex <sim-dir> is the absolute installed plugin directory.'],limit:10,revision:'static-help-v1',rows:rows.slice(offset,offset+10),offset,total:rows.length,nextOffset:offset+10<rows.length?offset+10:null,nextCursor:null};
+ return {schema:'ai.toolsenabled/sim-view/v1',view:'help',run:null,stream:'all',identity:{role:'observer',agentId:'unbound'},summary:['Commands · role checks precede model actions','Client invocation examples: docs/COMMANDS.md.'],limit:10,revision:'static-help-v1',rows:rows.slice(offset,offset+10),offset,total:rows.length,nextOffset:offset+10<rows.length?offset+10:null,nextCursor:null};
 }
 export function parsePage(value,view){
  if(!value||value.schema!=='ai.toolsenabled/sim-view/v1'||value.view!==view||!views.includes(view)||!(/^[a-f0-9]{64}$/.test(value.revision)||view==='help'&&value.revision==='static-help-v1')||value.run!==null&&!/^run-\d{4,10}$/.test(value.run))throw new Error('Invalid Sim page');
@@ -49,3 +50,13 @@ export function readerRequest(view,connection,root,options={},action){
 }
 // BusyBox env (Alpine Linux) has no -S: it refuses with its usage error before anything starts.
 export const envLacksSplit=/^env: (?:invalid|unrecognized) option/m;
+
+// Select from the SDK's absolute plugin root before any process is started.
+// Ambiguous/UNC/mixed roots refuse. This candidate's Windows launcher supports
+// the standard C:\Windows installation only, documented in docs/WINDOWS.md.
+export function readerHost(root){
+ if(typeof root!=='string'||/[\p{Cc}\p{Cf}\p{Cs}]/u.test(root))throw Error('Unsupported plugin root');
+ if(/^[A-Za-z]:[\\/]/.test(root)&&!root.slice(2).includes(':'))return 'windows';
+ if(root.startsWith('/')&&!root.startsWith('//')&&!root.includes(':')&&!root.includes('\\'))return 'posix';
+ throw Error('Unsupported plugin root');
+}

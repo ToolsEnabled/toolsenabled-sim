@@ -9,7 +9,7 @@ Set the plugin's required `connection_file` to this session's absolute connectio
 | Claude command (view) | What it shows | Codex equivalent |
 | --- | --- | --- |
 | `/sim` or `/sim status` | Bound identity, score, stop reason, live round and deadline remaining | `!node <sim-dir>/tools/sim-view.mjs status` |
-| `/sim help` | Every command, role/mode gate and equivalent | `!node <sim-dir>/tools/sim-view.mjs help` |
+| `/sim help` | View and action descriptions, arguments, role/mode gates and a documentation link | `!node <sim-dir>/tools/sim-view.mjs help` |
 | `/sim robots` | Own work, action/caller and delivery bounds; peers' poses and holding only | `!node <sim-dir>/tools/sim-view.mjs robots` |
 | `/sim map` | 33×13 map, zone labels and delivery areas | `!node <sim-dir>/tools/sim-view.mjs map` |
 | `/sim runs` | Retained results, mode, seed, engine and final hash | `!node <sim-dir>/tools/sim-view.mjs runs --root <absolute-root>` |

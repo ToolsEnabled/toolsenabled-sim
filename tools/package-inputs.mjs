@@ -4,13 +4,13 @@ import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 export function dependencyInputs(root){
  const json=file=>JSON.parse(readFileSync(join(root,file),'utf8'));
- const inventory=json('tools/dependency-files.json'),manifest=json('package.json'),lock=json('package-lock.json'),files=[],versions={};
+ const inventory=json('tools/dependency-files.json'),manifest=json('package.json'),lock=json('tools/upstream-npm-inputs.json'),files=[],versions={};
  const names=value=>JSON.stringify(Object.keys(value).sort());
- if(names(inventory)!==names(manifest.dependencies)||names(lock.packages[''].dependencies)!==names(manifest.dependencies))throw Error('Dependency lock/inventory set mismatch');
+ if(manifest.dependencies||manifest.devDependencies||manifest.optionalDependencies||names(lock.packages[''].dependencies)!==names(inventory))throw Error('Dependency lock/inventory set mismatch');
  for(const [name,dependency] of Object.entries(inventory)){
   if(!/^(@[a-z0-9-]+\/)?[a-z0-9-]+$/.test(name))throw Error('Unsafe dependency name');
   const installed=json(`node_modules/${name}/package.json`),locked=lock.packages[`node_modules/${name}`];
-  if(!locked||locked.version!==dependency.version||manifest.dependencies[name]!==dependency.version||lock.packages[''].dependencies[name]!==dependency.version)throw Error('Dependency lock mismatch: '+name);
+  if(!locked||locked.version!==dependency.version||lock.packages[''].dependencies[name]!==dependency.version)throw Error('Dependency lock mismatch: '+name);
   if(installed.name!==name||installed.version!==locked.version)throw Error('Dependency identity mismatch: '+name);
   versions[name]=installed.version;
   for(const relative of Object.keys(dependency.files)){

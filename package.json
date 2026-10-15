@@ -1,6 +1,6 @@
 {
   "name": "toolsenabled-sim",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Deterministic offline warehouse robot simulation and multi-camera MCP replay",
   "license": "MIT",
   "type": "module",
@@ -15,11 +15,5 @@
     "capture": "node tools/capture.mjs",
     "hub": "node src/hub-cli.mjs",
     "live": "node tools/live.mjs"
-  },
-  "dependencies": {
-    "@dimforge/rapier3d-compat": "0.17.3",
-    "@mujoco/mujoco": "3.14.0",
-    "playwright-core": "1.62.0",
-    "three": "0.180.0"
   }
 }

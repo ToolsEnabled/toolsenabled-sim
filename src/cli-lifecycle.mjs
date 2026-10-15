@@ -13,7 +13,7 @@ export async function runCli(main){
 export async function runHubCli(start,ready){
  let resource,requested=false,closing;
  const close=()=>resource?(closing??=resource.hub.close()):Promise.resolve();
- for(const signal of ['SIGINT','SIGTERM','SIGHUP'])process.on(signal,()=>{requested=true;close().catch(error=>{process.exitCode=1;console.error(error.message);});});
+ for(const signal of (process.platform==='win32'?['SIGINT','SIGTERM','SIGBREAK']:['SIGINT','SIGTERM','SIGHUP']))process.on(signal,()=>{requested=true;close().catch(error=>{process.exitCode=1;console.error(error.message);});});
  try{resource=await start();if(requested)await close();else ready(resource);}
  catch(error){if(resource)await close();throw error;}
 }

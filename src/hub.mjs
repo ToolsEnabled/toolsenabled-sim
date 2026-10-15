@@ -3,7 +3,7 @@ import {randomBytes} from 'node:crypto';
 import {mkdirSync,openSync,closeSync,writeSync,writeFileSync,readFileSync,readdirSync,unlinkSync,realpathSync,lstatSync,existsSync,renameSync} from 'node:fs';
 import {join} from 'node:path';
 import {createSim,validateScenario,validateAssignments} from './sim.mjs';
-import {privateRoot} from './private-files.mjs';
+import {privateRoot,makePrivateDirectory} from './private-files.mjs';
 import {fairScheduler} from './scheduler.mjs';
 import {createLive,liveOptions} from './live.mjs';
 import {toolList,validateCall} from './schema.mjs';
@@ -13,7 +13,7 @@ export const defaultAssignments=scene=>scene.robots.map((r,i)=>({robotId:r.id,ag
 export async function startHub({root,scenario=defaultScenario(),assignments=defaultAssignments(scenario),maxTicks=36000,maxRunBytes=128*1024*1024,live,engine='rapier',onWarning=message=>process.stderr.write(message+'\n')}={}){
  const liveConfig=liveOptions(live,scenario);
  if(!root)throw new Error('A private run root is required');
- mkdirSync(root,{recursive:true,mode:0o700});root=privateRoot(root);
+ makePrivateDirectory(root,{recursive:true});root=privateRoot(root);
  const lockPath=join(root,'hub.lock'),lock=openSync(lockPath,'wx',0o600);writeSync(lock,`${process.pid}\n`);
  let sim,recordFd,actionFd,liveFd,liveControl,runDir,server,broken=false,closed=false;let sequence=0;
  const capabilities=new Map(),connections={};
@@ -52,7 +52,7 @@ export async function startHub({root,scenario=defaultScenario(),assignments=defa
    if(sim&&JSON.stringify(a.map(x=>[x.robotId,x.agentId,x.driverLabel]))!==JSON.stringify(sim.header.assignments.map(x=>[x.robotId,x.agentId,x.driverLabel])))throw new Error('Restart the hub to change the stable agent mapping');
    const next=await createSim({scenario:s,assignments:a,maxTicks,maxRunBytes,engine,retainLog:false,live:!!liveConfig});
    let index=1;while(existsSync(join(root,`run-${String(index).padStart(4,'0')}`)))index++;
-   const dir=join(root,`run-${String(index).padStart(4,'0')}`);mkdirSync(dir,{mode:0o700});
+   const dir=join(root,`run-${String(index).padStart(4,'0')}`);makePrivateDirectory(dir);
    let rf,af,lf;
    try{
     if(liveConfig)lf=openSync(join(dir,'live.jsonl'),'wx',0o600);

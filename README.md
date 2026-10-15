@@ -1,6 +1,6 @@
 # ToolsEnabled Sim
 
-Linux tested; native Windows not yet supported.
+Linux tested. Native Windows candidate: implementation prepared, acceptance pending. See [Windows installation and qualification](docs/WINDOWS.md).
 
 A shared warehouse for three or four wheeled robots. Each agent controls one robot through MCP; a coordinator assigns crates and advances the world in lockstep. Rapier runs the physics in Node by default; `--engine mujoco` runs the same warehouse on MuJoCo. Three.js replays the resulting log into first-person, chase, overhead and combined views, without a model or internet connection.
 
@@ -8,17 +8,17 @@ The included warehouse demo delivers three crates in ten seconds of simulation t
 
 ## Run the demo
 
-Use Node.js 22 or newer. The release ZIP needs no install: it already includes its pinned npm dependencies. A Git checkout installs them first; `package-lock.json` pins the four packages by registry integrity, and `--offline --cache DIR` works only with a cache you filled from this lockfile beforehand:
+Use Node.js 22 or newer. Git checkouts and release archives both include the same exact reviewed dependency files. No npm install, dependency resolver or browser download runs during installation or startup. `tools/upstream-npm-inputs.json` preserves the original registry tarball integrity record, and `tools/dependency-files.json` pins every bundled file by SHA256. Check the inputs with:
 
 ```sh
-npm ci --ignore-scripts --no-audit --no-fund
+node tools/package-inputs.mjs .
 ```
 
-For the release ZIP, download both files from [v0.1.12](https://github.com/ToolsEnabled/toolsenabled-sim/releases/tag/v0.1.12), then verify before extracting:
+The 0.1.13 candidate is held pending qualification. After publication, download both files from [v0.1.13](https://github.com/ToolsEnabled/toolsenabled-sim/releases/tag/v0.1.13), then verify before extracting:
 
 ```sh
-sha256sum -c toolsenabled-sim-0.1.12.zip.sha256
-unzip toolsenabled-sim-0.1.12.zip
+sha256sum -c toolsenabled-sim-0.1.13.zip.sha256
+unzip toolsenabled-sim-0.1.13.zip
 cd sim
 ```
 
@@ -35,7 +35,7 @@ The pinned Rapier 0.17.3 compatibility loader prints `using deprecated parameter
 
 The output directory must be new. No model, agent CLI, cloud service, browser or GPU is required for the simulation. `replay` verifies the complete hash chain, re-executes the action journal in fresh physics, and compares the trajectory bytes.
 
-Two deterministic WebAssembly physics engines are pinned in `package-lock.json`: Rapier (`@dimforge/rapier3d-compat` 0.17.3, the default) and MuJoCo (`@mujoco/mujoco` 3.14.0, selected with `--engine mujoco`). The Rapier world has no gravity or friction. The MuJoCo world turns gravity, floor friction and bounded motor forces on: crates are free boxes that slide and stop under friction, a grabbed crate is welded 0.75 m in front of its robot, and go-to brakes early enough to stop on target. The engine is recorded in each run's trajectory header, and `replay` rebuilds the world on the recorded engine. The included demo delivers all three crates with no collisions on either engine.
+Two deterministic WebAssembly physics engines are pinned in `tools/dependency-files.json`: Rapier (`@dimforge/rapier3d-compat` 0.17.3, the default) and MuJoCo (`@mujoco/mujoco` 3.14.0, selected with `--engine mujoco`). The Rapier world has no gravity or friction. The MuJoCo world turns gravity, floor friction and bounded motor forces on: crates are free boxes that slide and stop under friction, a grabbed crate is welded 0.75 m in front of its robot, and go-to brakes early enough to stop on target. The engine is recorded in each run's trajectory header, and `replay` rebuilds the world on the recorded engine. The included demo delivers all three crates with no collisions on either engine.
 
 ## Connect agents
 
@@ -69,8 +69,8 @@ codex plugin marketplace add ToolsEnabled/toolsenabled-sim
 
 Claude Code stores `connection_file` per user (in `settings.json` of its configuration directory), not per project, so installing for a second robot rebinds the first. To run several robots on one OS account, give each robot agent its own `CLAUDE_CONFIG_DIR` and use it for every `claude` command of that agent; see [several robots on one OS account](docs/CLAUDE-INSTALL.md#several-robots-on-one-os-account). The install prints `1 userConfig option not yet set`: that is the optional `run_root`, and the message is expected.
 
-For an offline Claude Code install from the verified ZIP, add its extracted `sim/` directory as a local marketplace and use the same plugin name. For a Git-backed install, Claude Code itself runs `npm ci --ignore-scripts` in the installed plugin directory; run `npm ci --ignore-scripts --no-audit --no-fund` there yourself only if its `node_modules` is missing. The release ZIP already includes the dependencies. Set Codex's absolute `SIM_CONNECTION` in the host environment before starting it, then install Sim from the toolsenabled-sim marketplace in Codex's /plugins browser.
-See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.12 release, and native installation still needs qualification. POSIX ownership checks are required; native Windows is not supported in this release.
+For an offline Claude Code install from the verified ZIP, add its extracted `sim/` directory as a local marketplace and use the same plugin name. Git-backed installs and ZIP installs both contain the reviewed runtime dependencies; neither needs npm installation. Set Codex's absolute `SIM_CONNECTION` in the host environment before starting it, then install Sim from the toolsenabled-sim marketplace in Codex's /plugins browser.
+See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.13 release, and native installation still needs qualification. The Windows CLI/plugin candidate has a separate ACL implementation and remains unqualified; see docs/WINDOWS.md.
 
 Sim has no dashboard or human-control link. The human starts the hub and finds connection-file paths in its launch terminal. Capture and replay are explicit human-run local commands. Agent file/shell tools running as the same user can read host logs and private connection files; project scope and skill guidance do not provide OS isolation.
 
@@ -78,7 +78,7 @@ ToolsEnabled is not affiliated with or endorsed by Anthropic. [Privacy](https://
 
 ## Try it
 
-No account or API key is needed: the hub and the plugin run on your computer, and Sim calls no model or online service of its own. Start a hub from the extracted release ZIP's `sim/` folder (or a checkout after `npm ci`) and leave it running; then, in another terminal and a new empty folder, install the plugin with the coordinator's connection file:
+No account or API key is needed: the hub and the plugin run on your computer, and Sim calls no model or online service of its own. Start a hub from the extracted release ZIP's `sim/` folder (or the self-contained Git checkout) and leave it running; then, in another terminal and a new empty folder, install the plugin with the coordinator's connection file:
 
 ```sh
 node src/hub-cli.mjs --root /absolute/private-sim-run
@@ -111,7 +111,7 @@ This covers the Claude Code plugin in this repository: the hooks module `hooks/r
 
 **Programs it starts**
 
-The mod starts one program, the plugin's own reader, to read the view a pane shows or to check an action before the model turn (the preflight). It starts it through Claude Code's process call, with a 5-second limit and the plugin folder as its working directory, by this command, written as fixed text:
+The mod starts a bounded reader process, the plugin's own reader, to read the view a pane shows or to check an action before the model turn (the preflight). It starts it through Claude Code's process call, with a 5-second limit and the plugin folder as its working directory, by this command, written as fixed text:
 
 ```text
 /usr/bin/env -i -S 'PATH=${PATH}:/usr/local/bin:/usr/bin:/bin' LANG=C.UTF-8 node tools/sim-view.mjs --pane
@@ -140,21 +140,21 @@ The directory reports that Sim uses a credential from your machine: that is the 
 
 **Where it runs, and its dependencies**
 
-The MCP server is a local stdio server that needs `connection_file`. Claude Code loads it and asks you for that value; claude.ai chat ignores local servers, and Cowork ignores a server whose option has no default, which `connection_file` does not have. `package-lock.json` pins four npm packages by registry integrity: `@dimforge/rapier3d-compat` 0.17.3, `@mujoco/mujoco` 3.14.0, `playwright-core` 1.62.0 and `three` 0.180.0. A Git install installs them with `npm ci --ignore-scripts`; the release ZIP already contains them.
+The MCP server is a local stdio server that needs `connection_file`. Claude Code loads it and asks you for that value; claude.ai chat ignores local servers, and Cowork ignores a server whose option has no default, which `connection_file` does not have. `tools/dependency-files.json` pins the bundled files from four npm packages: `@dimforge/rapier3d-compat` 0.17.3, `@mujoco/mujoco` 3.14.0, `playwright-core` 1.62.0 and `three` 0.180.0. The same reviewed files are committed in Git and included in the ZIP. No dependency installation is requested.
 
 **What the directory's review notes mean for Sim**
 
 - Mod can read local data and can also send data out: the mod's reader reads your connection file and run history, and sends requests only to your own hub on 127.0.0.1, so nothing leaves your computer.
-- Mod starts a program with a command the directory couldn't read in full: both reader commands are fixed text, printed in full above, and only the JSON request on the reader's standard input varies.
-- Mod starts other programs: the mod runs one program, the plugin's own reader (`/usr/bin/env` starting `node tools/sim-view.mjs --pane`), so that the pane and an action's preflight can read your hub and run history without your environment.
+- Mod starts a program with a command the directory couldn't read in full: the two POSIX commands above and the Windows command in docs/WINDOWS.md are fixed text; the reader request travels on stdin.
+- Mod starts other programs: the mod starts its own reader through a scrubbed POSIX command or the bounded native Windows launcher, so that the pane and an action's preflight can read your hub and run history without your environment.
 - Mod takes, or can take, a permission decision out of the user's hands: the only decision the mod takes is to refuse a Sim action command that you did not type yourself, or whose arguments or preflight fail, and it never approves anything or changes a permission, a tool approval, the permission mode, a setting, Remote Control or an agent.
-- Dependencies install from a lockfile: a Git install runs `npm ci --ignore-scripts` for the four packages `package-lock.json` pins above, and the release ZIP already contains them.
+- Dependencies are bundled from an explicit SHA256 inventory. No root npm dependency manifest or install lockfile triggers automatic dependency installation; the original registry integrity record remains in tools/upstream-npm-inputs.json.
 - Uses a credential from the user's machine: the only credential is the connection file your own hub creates, which the plugin receives as the `connection_file` value you set and which works only against that hub on 127.0.0.1.
 - Name or publisher name may be confused with another listing: ToolsEnabled, Inc. publishes Sim from its own GitHub organization, ToolsEnabled, and has no connection with the directory connector "nabled" that the name check matched.
 
 ## Commands
 
-Open `/sim help` for local status, robots, map, runs, events, scenarios, replay guidance and connection panes. Request actions with the native names `/toolsenabled-sim:deliver`, `:move`, `:hold`, `:submit`, `:step`, `:assign`, `:scenario` and `:reset`; help prints their full spellings and role gates. Actions keep normal tool approvals and are checked against this connection's role and mode before the model turn; they then run as typed, and the model reads its bound robot from `sim.status`. Codex uses `!node /absolute/sim/tools/sim-view.mjs <view>` and `$toolsenabled-sim:toolsenabled-sim <action>`. See the complete [command table](docs/COMMANDS.md), including optional `run_root` / `SIM_RUN_ROOT` for archived history.
+Open `/sim help` for local status, robots, map, runs, events, scenarios, replay guidance and connection panes. Request actions with the native names `/toolsenabled-sim:deliver`, `:move`, `:hold`, `:submit`, `:step`, `:assign`, `:scenario` and `:reset`; help describes their arguments and role gates, and links to docs/COMMANDS.md for full client spellings. Actions keep normal tool approvals and are checked against this connection's role and mode before the model turn; they then run as typed, and the model reads its bound robot from `sim.status`. Codex uses `!node /absolute/sim/tools/sim-view.mjs <view>` and `$toolsenabled-sim:toolsenabled-sim <action>`. See the complete [command table](docs/COMMANDS.md), including optional `run_root` / `SIM_RUN_ROOT` for archived history.
 
 ## Live mode
 
@@ -209,7 +209,7 @@ No provider credentials or model calls are needed.
 | Claude command (view) | What it shows | Codex equivalent |
 | --- | --- | --- |
 | `/sim` or `/sim status` | Bound identity, score, stop reason, live round and deadline remaining | `!node <sim-dir>/tools/sim-view.mjs status` |
-| `/sim help` | Every command, role/mode gate and equivalent | `!node <sim-dir>/tools/sim-view.mjs help` |
+| `/sim help` | View and action descriptions, arguments, role/mode gates and a documentation link | `!node <sim-dir>/tools/sim-view.mjs help` |
 | `/sim robots` | Own work, action/caller and delivery bounds; peers' poses and holding only | `!node <sim-dir>/tools/sim-view.mjs robots` |
 | `/sim map` | 33×13 map, zone labels and delivery areas | `!node <sim-dir>/tools/sim-view.mjs map` |
 | `/sim runs` | Retained results, mode, seed, engine and final hash | `!node <sim-dir>/tools/sim-view.mjs runs --root <absolute-root>` |
@@ -228,3 +228,10 @@ No provider credentials or model calls are needed.
 | `/toolsenabled-sim:assign` | Manual coordinator: robot crate task-id ledger-id. | `$toolsenabled-sim:toolsenabled-sim assign <robot> <crate> <task-id> <ledger-id>` |
 | `/toolsenabled-sim:scenario` | Coordinator: absolute JSON file, validated against current assignments. | `$toolsenabled-sim:toolsenabled-sim scenario <absolute-file>` |
 | `/toolsenabled-sim:reset` | Coordinator: no arguments. Restart everyone's shared world and round; old logs remain. | `$toolsenabled-sim:toolsenabled-sim reset` |
+
+
+## Windows candidate
+
+Version 0.1.13 prepares a native Node + Windows PowerShell implementation, per-user ACL creation, conservative ancestor owner/raw-DACL checks, handle-bound file reads and a contained pane reader. It has not passed native acceptance. Do not treat Linux tests, PowerShell parsing or C# compilation as Windows proof. See [docs/WINDOWS.md](docs/WINDOWS.md) for the held install route, differences, exact open gates and owner checks.
+
+The latest measured directory result remains Sim 0.1.12: 5 warnings / 8 policy holds. This candidate bundles dependencies in Git, removes the automatic npm install path, keeps client invocation syntax in docs, and separates local HTTP test helpers from process-launching suites. Their scanner effects are unmeasured. Panes and the exact “Type the Sim action yourself to request it.” refusal remain owner decisions. Large bundled upstream JavaScript/WebAssembly may require additional inspection holds. The three metadata fields used by the portal listing remain present. No portal submission or validation was performed here.

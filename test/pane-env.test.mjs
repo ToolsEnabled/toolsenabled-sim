@@ -12,15 +12,16 @@ import {readerRequest,envLacksSplit} from '../hooks/view.mjs';
 // directory can read them in full. Everything that varies (the view, the configured paths, the pane's options, an action's
 // arguments) reaches the reader as one JSON request on standard input. These tests run both commands for real.
 const READER=['/usr/bin/env','-i','-S','PATH=${PATH}:/usr/local/bin:/usr/bin:/bin','LANG=C.UTF-8','node','tools/sim-view.mjs','--pane'];
+const WINDOWS_READER=['C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe','-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File','native/windows-pane.ps1'];
 const BUSYBOX_READER=['/usr/bin/env','-i','PATH=/usr/local/bin:/usr/bin:/bin','LANG=C.UTF-8','node','tools/sim-view.mjs','--pane'];
 const repo=resolve(new URL('../',import.meta.url).pathname);
 const standardNode=['/usr/local/bin/node','/usr/bin/node','/bin/node'].some(p=>existsSync(p));
 
-test('the mod starts a program only through the two fixed reader commands and reads no environment variable',async()=>{
+test('the mod starts a program only through the three fixed reader commands and reads no environment variable',async()=>{
  const source=await readFile(join(repo,'hooks/register.tsx'),'utf8');
  const calls=[...source.matchAll(/\$\.process\.run\((\[[^\]]*\])/g)].map(m=>JSON.parse(m[1].replaceAll("'",'"')));
- assert.deepEqual(calls,[READER,BUSYBOX_READER]);
- assert.equal(source.match(/\$\.process\./g).length,2);assert.doesNotMatch(source,/\$\.env\./);
+ assert.deepEqual(calls,[WINDOWS_READER,READER,BUSYBOX_READER]);
+ assert.equal(source.match(/\$\.process\./g).length,3);assert.doesNotMatch(source,/\$\.env\./);
 });
 
 // A scratch plugin folder whose tools/sim-view.mjs reports what reached it, and a node on a PATH entry with a space in it

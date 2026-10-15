@@ -1,3 +1,5 @@
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {getView,preflight} from '../src/view-client.mjs';
 import {displayText} from '../src/display.mjs';
 
@@ -8,7 +10,10 @@ const usage='Use sim-view.mjs help for view and action usage.';
 async function pane(args){
  if(args.length)throw new Error(usage);
  let size=0;const parts=[];for await(const b of process.stdin){size+=b.length;if(size>65536)throw new Error('Pane request exceeds 64 KiB.');parts.push(b);}
- const request=JSON.parse(Buffer.concat(parts)),options=request?.options;
+ return readPane(Buffer.concat(parts));
+}
+export async function readPane(input){
+ const request=JSON.parse(input),options=request?.options;
  if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).some(k=>!['view','connection','root','options','action'].includes(k))||
   !['view','connection','root'].every(k=>typeof request[k]==='string')||!options||typeof options!=='object'||Array.isArray(options)||
   Object.entries(options).some(([k,v])=>!['offset','limit','revision','cursor','run','stream','check'].includes(k)||typeof v!=='string')||(request.view==='action')!==('action' in request))throw new Error(usage);
@@ -38,4 +43,4 @@ async function main(){
   ...(body.nextCursor!==null?[`Next page: --cursor ${body.nextCursor} --revision ${body.revision}`]:[]),
  ].map(v=>displayText(v,2000)).join('\n')+'\n');
 }
-main().catch(e=>{process.stderr.write(displayText(e.status?e.message:'Sim view failed. Check arguments, private file ownership and configuration.',500)+'\n');process.exitCode=1;});
+if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)main().catch(e=>{process.stderr.write(displayText(e.status?e.message:'Sim view failed. Check arguments, private file ownership and configuration.',500)+'\n');process.exitCode=1;});

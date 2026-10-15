@@ -1,0 +1,3 @@
+# Preserve reviewed source and bundled dependency bytes on every host.
+# Automatic CRLF conversion would invalidate the SHA256 inventories.
+* -text

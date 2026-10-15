@@ -20,7 +20,9 @@ if(listingImage.length>1)throw new Error('Only one listing image may sit in .cla
 const shipped=tracked.filter(file=>!listingImage.includes(file));
 if(JSON.stringify([...shipped].sort())!==JSON.stringify(sourceFiles)||sourceFiles.includes('server.json'))throw new Error('Source allowlist differs from tracked files or includes Registry metadata');
 const deps=dependencyInputs(root);
-const files=[...sourceFiles,...deps.files];
+execFileSync(process.execPath,[join(root,'tools/install-inventory.mjs'),'--check'],{cwd:root});
+if(deps.files.some(file=>!sourceFiles.includes(file)))throw new Error('Reviewed runtime dependency missing from tracked source');
+const files=[...sourceFiles];
 files.sort();
 function tarHeader(name,size){
  const header=Buffer.alloc(512);let prefix='';if(Buffer.byteLength(name)>100){const split=name.lastIndexOf('/');prefix=name.slice(0,split);name=name.slice(split+1);}if(Buffer.byteLength(name)>100||Buffer.byteLength(prefix)>155)throw new Error('Archive path too long');

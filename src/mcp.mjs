@@ -18,7 +18,7 @@ async function handle(line){
  if(msg.method==='ping'){send({jsonrpc:'2.0',id:msg.id,result:{}});return;}
  if(msg.method==='initialize'){
   if(initialized){error(msg.id,-32600,'Already initialized');return;}
-  initialized=true;send({jsonrpc:'2.0',id:msg.id,result:{protocolVersion:['2024-11-05','2025-03-26','2025-06-18'].includes(msg.params?.protocolVersion)?msg.params.protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'toolsenabled-sim',version:'0.1.12'},instructions}});return;
+  initialized=true;send({jsonrpc:'2.0',id:msg.id,result:{protocolVersion:['2024-11-05','2025-03-26','2025-06-18'].includes(msg.params?.protocolVersion)?msg.params.protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'toolsenabled-sim',version:'0.1.13'},instructions}});return;
  }
  if(!initialized){error(msg.id,-32002,'Initialize first');return;}
  if(!['tools/list','tools/call'].includes(msg.method)){error(msg.id,-32601,'Method not found');return;}
@@ -40,3 +40,5 @@ process.stdin.on('end',()=>{const deadline=setTimeout(()=>{drainExpired=true;dra
 process.on('SIGTERM',()=>process.exit(0));process.on('SIGINT',()=>process.exit(0));
 
 process.on('SIGHUP',()=>process.exit(0));
+
+if(process.platform==='win32')process.on('SIGBREAK',()=>process.exit(0));

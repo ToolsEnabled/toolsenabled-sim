@@ -30,5 +30,5 @@ export async function serveReplay({run,port=0}){
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  const args=process.argv.slice(2),i=args.indexOf('--run'),p=args.indexOf('--port');if(i<0)throw new Error('Usage: node src/replay-server.mjs --run RUN [--port 0]');
  const page=await serveReplay({run:resolve(args[i+1]),port:p<0?0:Number(args[p+1])});console.log(JSON.stringify({url:page.url,hook:'renderAt',metadataHook:'studioRasterMetadata'}));
- for(const sig of ['SIGINT','SIGTERM','SIGHUP'])process.on(sig,async()=>{await page.close();process.exit(0);});
+ for(const sig of (process.platform==='win32'?['SIGINT','SIGTERM','SIGBREAK']:['SIGINT','SIGTERM','SIGHUP']))process.on(sig,async()=>{await page.close();process.exit(0);});
 }

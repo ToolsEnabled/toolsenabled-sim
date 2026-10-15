@@ -20,7 +20,8 @@ def members(root):
     if files != sorted(set(files)) or 'server.json' in files:
         raise ValueError('Invalid source allowlist')
     deps = json.loads(subprocess.check_output(['node', str(ROOT / 'tools/package-inputs.mjs'), str(root)], text=True))
-    files.extend(deps['files'])
+    if any(name not in files for name in deps['files']):
+        raise ValueError('Reviewed runtime dependency missing from tracked source')
     for name in files:
         rel = Path(name)
         if rel.is_absolute() or '..' in rel.parts or '\\' in name or rel.as_posix() != name:
@@ -42,6 +43,7 @@ def build(cli, output):
     if len(listing_image) > 1: raise ValueError('Only one listing image may sit in .claude-plugin')
     if [name for name in tracked if name not in listing_image] != json.loads((ROOT/'tools/package-files.json').read_text()):
         raise ValueError('Source allowlist differs from tracked files')
+    subprocess.run(['node', str(ROOT/'tools/install-inventory.mjs'), '--check'], cwd=ROOT, check=True)
     cli = cli.resolve(strict=True)
     version = subprocess.check_output(['node', str(cli), '--version'], text=True).strip()
     if version != '2.1.2': raise ValueError('Expected mcpb CLI 2.1.2')

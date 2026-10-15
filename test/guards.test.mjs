@@ -1,3 +1,4 @@
+import {hubCall,hubView} from './support/local-hub-client.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile,writeFile,mkdir,rm,rmdir,symlink,chmod,truncate,stat} from 'node:fs/promises';
@@ -35,8 +36,8 @@ const unsafe=value=>strings(value).filter(s=>UNSAFE.test(s));
 async function fixture(options={}){
  const root=await mkdtemp(join(tmpdir(),'sim-guard-'));const warnings=[];const hub=await startHub({root,onWarning:m=>warnings.push(m),...options});
  const identity=async who=>JSON.parse(await readFile(hub.connections[who],'utf8'));
- const request=async(who,query={})=>{const c=await identity(who);const res=await fetch(c.url+'/view?'+new URLSearchParams(query),{headers:{authorization:`Bearer ${c.token}`}});const text=await res.text();return {status:res.status,body:JSON.parse(text),bytes:Buffer.byteLength(text)};};
- const call=async(who,name,args={})=>{const c=await identity(who);return (await fetch(c.url+'/call',{method:'POST',headers:{authorization:`Bearer ${c.token}`},body:JSON.stringify({method:'tools/call',params:{name,arguments:args}})})).json();};
+ const request=async(who,query={})=>hubView(await identity(who),query);
+ const call=async(who,name,args={})=>(await hubCall(await identity(who),name,args)).json();
  return {root,hub,warnings,identity,request,call,async close(){await hub.close();await rm(root,{recursive:true,force:true});}};
 }
 const cli=resolve('tools/sim-view.mjs');

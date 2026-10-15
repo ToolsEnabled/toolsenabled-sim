@@ -1,3 +1,4 @@
+import {hubCall as call} from './support/local-hub-client.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
@@ -10,7 +11,6 @@ import {startHub,defaultScenario,defaultAssignments} from '../src/hub.mjs';
 import {McpClient} from '../tools/mcp-client.mjs';
 async function fixture(fn,options={}){const root=await mkdtemp(join(tmpdir(),'sim-review-'));let hub;try{hub=await startHub({root,...options});await fn(hub,root);}finally{if(hub)await hub.close();await rm(root,{recursive:true,force:true});}}
 const config=async(hub,id='amber')=>JSON.parse(await readFile(hub.connections[id],'utf8'));
-const call=(cfg,name='sim.status',args={})=>fetch(cfg.url+'/call',{method:'POST',headers:{authorization:`Bearer ${cfg.token}`,'content-type':'application/json'},body:JSON.stringify({method:'tools/call',params:{name,arguments:args}}),signal:AbortSignal.timeout(1500)});
 test('AUTH-1: 64 unauthenticated sockets cannot lock out a capability holder',async()=>{
  await fixture(async hub=>{const sockets=[];try{const port=Number(new URL(hub.url).port);for(let i=0;i<64;i++){const s=net.connect({host:'127.0.0.1',port});s.on('error',()=>{});s.resume();sockets.push(s);await new Promise(r=>s.once('connect',r));}const response=await call(await config(hub));assert.equal(response.status,200);assert.equal((await response.json()).result.tick,0);let timer;try{await Promise.race([Promise.all(sockets.map(s=>s.destroyed?undefined:new Promise(r=>s.once('close',r)))),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Pre-auth sockets did not close within 5 s')),5000);})]);}finally{clearTimeout(timer);}assert.ok(sockets.every(s=>s.destroyed));}finally{for(const s of sockets)s.destroy();}});
 });
@@ -36,9 +36,6 @@ test('AUTH-2: live coordinator cannot impersonate robots; submissions and holds 
   const live=(await readFile(join(hub.runDir,'live.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);for(const a of live){assert.ok(a.caller?.role&&a.caller?.agentId);assert.ok(Object.hasOwn(a,'robotId'));}assert.ok(live.some(a=>a.kind==='submission'&&a.robotId==='amber'&&a.caller.agentId==='script-amber'));
   const {verifyTrajectory,replayActions}=await import('../src/sim.mjs');const bytes=await readFile(join(hub.runDir,'trajectory.jsonl'),'utf8'),check=verifyTrajectory(bytes),replayed=await replayActions(check.records[0],actions);try{assert.equal(replayed.trajectory(),bytes);}finally{replayed.close();}
  }finally{await r.close();await c.close();}},{live:{activeRobots:['amber'],budgetMs:1000},maxTicks:120});
-});
-test('S-3: replay trajectory and assets require the private launch capability',async()=>{
- const {serveReplay}=await import('../src/replay-server.mjs');await fixture(async hub=>{const page=await serveReplay({run:hub.runDir});try{const origin=new URL(page.url).origin;assert.equal((await fetch(origin+'/trajectory.json')).status,401);assert.equal((await fetch(origin+'/')).status,401);const permitted=await fetch(new URL('trajectory.json',page.url));assert.equal(permitted.status,200);assert.equal(permitted.headers.get('x-content-type-options'),'nosniff');assert.equal(permitted.headers.get('referrer-policy'),'no-referrer');const rows=await permitted.json();assert.equal(rows[0].kind,'header');}finally{await page.close();}});
 });
 test('S-4: work IDs reject terminal escapes, controls, bidi and markup before mutation',async()=>{
  const {validateAssignments}=await import('../src/sim.mjs');const scene=defaultScenario();
@@ -74,7 +71,7 @@ test('I-3: live catalogs match runtime authority and all four catalogs have gold
  for(const isLive of [false,true])await fixture(async hub=>{for(const role of ['coordinator','robot']){const client=new McpClient(hub.connections[role==='robot'?'amber':'coordinator']);try{await client.initialize();const actual=(await client.request('tools/list',{})).tools;assert.deepEqual(actual,toolList(role,{live:isLive}));const file=`${isLive?'live-':''}${role==='robot'?'robot-':''}tools.json`;assert.deepEqual(actual,JSON.parse(await readFile(new URL('./fixtures/'+file,import.meta.url),'utf8')));}finally{await client.close();}}},{...(isLive?{live:{}}:{})});
 });
 test('I-6: package, lock, plugin and MCP advertise the release version',async()=>{
- for(const path of ['package.json','package-lock.json','.codex-plugin/plugin.json']){const data=JSON.parse(await readFile(new URL('../'+path,import.meta.url),'utf8'));assert.equal(data.version,'0.1.12');if(data.packages)assert.equal(data.packages[''].version,'0.1.12');}
- const changelog=await readFile(new URL('../CHANGELOG.md',import.meta.url),'utf8');assert.deepEqual([...changelog.matchAll(/^## (\d+\.\d+\.\d+)/gm)].map(m=>m[1]),['0.1.12','0.1.11','0.1.10','0.1.9','0.1.8','0.1.7','0.1.6','0.1.5','0.1.4','0.1.3','0.1.2','0.1.1','0.1.0']);assert.doesNotMatch(changelog,/## Unreleased/);
- await fixture(async hub=>{const c=new McpClient(hub.connections.amber);try{assert.equal((await c.initialize()).serverInfo.version,'0.1.12');}finally{await c.close();}});
+ for(const path of ['package.json','.codex-plugin/plugin.json']){const data=JSON.parse(await readFile(new URL('../'+path,import.meta.url),'utf8'));assert.equal(data.version,'0.1.13');if(data.packages)assert.equal(data.packages[''].version,'0.1.13');}
+ const changelog=await readFile(new URL('../CHANGELOG.md',import.meta.url),'utf8');assert.deepEqual([...changelog.matchAll(/^## (\d+\.\d+\.\d+)/gm)].map(m=>m[1]),['0.1.13','0.1.12','0.1.11','0.1.10','0.1.9','0.1.8','0.1.7','0.1.6','0.1.5','0.1.4','0.1.3','0.1.2','0.1.1','0.1.0']);assert.doesNotMatch(changelog,/## Unreleased/);
+ await fixture(async hub=>{const c=new McpClient(hub.connections.amber);try{assert.equal((await c.initialize()).serverInfo.version,'0.1.13');}finally{await c.close();}});
 });

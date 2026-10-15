@@ -222,7 +222,7 @@ class PackagingTests(unittest.TestCase):
             reject(root/'node_modules/three/build/three.module.js',lambda p:p.write_bytes(p.read_bytes()+b'\n// altered'),'hash')
             def wrong_lock(path):
                 data=json.loads(path.read_text());data['packages']['node_modules/three']['version']='9.9.9';path.write_text(json.dumps(data))
-            reject(root/'package-lock.json',wrong_lock,'lock')
+            reject(root/'tools/upstream-npm-inputs.json',wrong_lock,'lock')
             result=json.loads(subprocess.check_output(['node',str(ROOT/'tools/package-inputs.mjs'),str(root)]))
             self.assertEqual(result['versions']['three'],'0.180.0')
 

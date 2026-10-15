@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.13
+
+- Prepare native Windows private state and file reads with per-user DACLs, handle identity binding, all-ancestor owner/access checks and conservative unsupported-ACE refusal. Linux ownership checks remain enforced.
+- Prepare a clean-environment Windows pane reader in a dedicated Job Object, portable PowerShell/cmd installation, local-drive path checks and console signal handling. Native acceptance remains pending; Windows 11 and desktop GUI clients are not qualified.
+- Git and archive installs now contain the same exact reviewed dependency files. No root npm installer or lockfile is needed; tools/upstream-npm-inputs.json retains original registry integrity and tools/dependency-files.json retains selected-file hashes.
+- Keep panes and the exact typed-action refusal. Describe actions in runtime help and keep executable client examples in docs/COMMANDS.md. Separate HTTP-only test helpers from process-starting test suites. Portal effects require a new validation.
+
 ## 0.1.12 — 2026-10-14
 
 Fixes from the 2026-10-14 fresh-user re-test of 0.1.11, and the plugin directory's review holds and warnings that could be removed without removing a feature or weakening a check. Physics, recorded trajectory bytes, the MCP tool names, schemas and hints, the `/sim` pane and its eight action commands, and the dependencies are unchanged:

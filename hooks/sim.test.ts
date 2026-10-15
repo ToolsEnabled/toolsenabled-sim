@@ -38,7 +38,7 @@ test('registers only /sim at neutral startup without reads or prompts',{options}
 for(const view of ['status','robots','runs','events','map','scenarios','replay','connection'])test(`${view} opens a local read-only pane and q closes`,{options},async($,on)=>{
  const w=world(on);w.setAnswer(frame(view));await start($);const result=await command($,view==='status'?'':view)
  expect(result.text).toBe('Sim pane opened.');expect(result.context).toBe(undefined);expect(w.processes.length).toBe(1)
- const call=w.processes[0];expect(call.argv).toEqual(READER);expect(call.init.cwd).toMatch(/^\//);expect(call.init.env).toBe(undefined);expect(call.init.timeoutMs).toBe(5000)
+ const call=w.processes[0];expect(call.argv).toEqual(READER);expect(call.init.cwd).toMatch(/^\//);expect(call.init.env).toBe(undefined);expect(call.init.timeoutMs).toBe(12000)
  expect(JSON.parse(call.init.stdin)).toEqual({view,connection:options.connection_file,root:'',options:view==='events'?{stream:'all'}:{}})
  const ui=await pane($);expect(JSON.stringify(await ui.drawn())).toContain('Visible result')
  expect(w.opened[0].closeOnEscape).toBe(true);await press($,'sim-close');expect(w.closed.length).toBe(1);expect(w.prompts.length).toBe(0)
@@ -146,10 +146,10 @@ test('refused role or mode opens a notice without a native model turn',{options}
  expect(w.native.length).toBe(0);expect(w.prompts.length).toBe(0);expect(w.opened.length).toBe(1);expect(result.context).toBe(undefined)
  const ui=await pane($);expect(JSON.stringify(await ui.drawn())).toContain('coordinator')
 })
-test('help is static and every action uses its full qualified spelling',{options},async($,on)=>{
+test('help is static and describes every action with a command documentation link',{options},async($,on)=>{
  const w=world(on);await start($);await command($,'help');const ui=await pane($)
- expect(w.processes.length).toBe(0);expect(JSON.stringify(await ui.drawn())).toContain('/sim map')
- await press($,'sim-next');expect(JSON.stringify(await ui.drawn())).toContain('/toolsenabled-sim:reset');expect(w.processes.length).toBe(0)
+ expect(w.processes.length).toBe(0);expect(JSON.stringify(await ui.drawn())).toContain('map')
+ await press($,'sim-next');expect(JSON.stringify(await ui.drawn())).toContain('reset');expect(w.processes.length).toBe(0)
 })
 test('bad arguments and non-user action origins never submit',{options},async($,on)=>{
  const w=world(on);await start($)

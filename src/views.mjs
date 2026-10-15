@@ -1,3 +1,4 @@
+import {clearWindowsInspection} from './windows-files.mjs';
 import {closeSync,readFileSync,lstatSync} from 'node:fs';
 import {join} from 'node:path';
 import {displayText} from './display.mjs';
@@ -16,6 +17,7 @@ const metric=s=>`Tick ${s.tick} · ${s.delivered}/${s.total} delivered · ${s.co
 const visible=(identity,header)=>identity.role!=='robot'||header.assignments?.some(a=>a.robotId===identity.robotId&&a.agentId===identity.agentId);
 function modeOf(root,run){try{const s=lstatSync(join(root,run,'live.jsonl'));if(s.isSymbolicLink()||!s.isFile())throw problem('Private event file is unavailable.');return 'live';}catch(e){if(e.code==='ENOENT')return 'manual';throw e;}}
 export function readView({root,sim,live,run,instanceId,online=true},identity,params){
+ clearWindowsInspection();
  try{
   const fields=['view','run','stream','offset','limit','cursor','revision'];
   for(const [key] of params)if(!fields.includes(key)||params.getAll(key).length!==1)throw problem('Invalid view query.');

@@ -11,7 +11,7 @@ The Node.js runtime is 22 or newer. These are the complete direct and transitive
 | `three` | `0.180.0` | Offline WebGL scene and cameras |
 | `playwright-core` | `1.62.0` | Headless Chromium adapter; no browser download |
 
-The release archive ships these files; a Git checkout installs them with `npm ci --ignore-scripts --no-audit --no-fund` from the lockfile's registry integrity pins, and `--offline --cache DIR` needs a cache filled from this lockfile beforehand. There are no native addons, hosted assets, model providers or system-package installers. Node built-ins provide stdio JSON-RPC, loopback HTTP, validation, tests, hashing and reproducible packaging. Chromium and its portable runtime libraries are explicitly supplied by the operator for rendering, never for physics. Capture receipts pin their environment. No cross-GPU or cross-browser frame identity is promised.
+The release archive and Git checkout ship the same reviewed runtime files. No dependency installation is needed; the original registry integrity provenance and per-file SHA256 pins remain in tools/upstream-npm-inputs.json and tools/dependency-files.json. There are no native addons, hosted assets, model providers or system-package installers. Node built-ins provide stdio JSON-RPC, loopback HTTP, validation, tests, hashing and reproducible packaging. Chromium and its portable runtime libraries are explicitly supplied by the operator for rendering, never for physics. Capture receipts pin their environment. No cross-GPU or cross-browser frame identity is promised.
 
 ## Shared simulation
 
@@ -36,3 +36,5 @@ The reference capture script launches a private headless Chromium instance, bloc
 Tests cover independent deterministic worlds, full physics replay, strict input/identity checks, collisions and physical grasping, command/tick budgets, data-driven four-robot scenes, assignment provenance, complete stdio warehouse lifecycle, immutable old runs, golden tool schemas, protocol framing, request bursts, role/catalog exclusions, real headless rendering and Studio's hook contract. The full suite requires the supplied browser and runs with DISPLAY unset.
 
 The scripted demo uses no model, drives all robots through MCP and runs on either engine. An optional integration proof uses a local Fleet checkout with an isolated SQLite database and T ledger. No live user state is needed. Product source, bundled dependency closure, sample evidence and exact test receipts are independently auditable. Distribution archives have fixed ordering, timestamps and permissions; two builds must be byte-identical. The source bundle preserves the regression history.
+
+Git and ZIP installs now contain the same reviewed dependency files. No npm dependency installation is needed. The provenance input records original upstream tarball integrity; tools/dependency-files.json pins selected bytes. Native Windows design and qualification limits are in WINDOWS.md.

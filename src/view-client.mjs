@@ -1,3 +1,4 @@
+import {shellArgument as shell} from './shell-argument.mjs';
 import {constants,openSync,closeSync,fstatSync,readFileSync,lstatSync} from 'node:fs';
 import {dirname,isAbsolute,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -9,15 +10,15 @@ import {helpRows,actions} from './command-catalog.mjs';
 import {validateScenario,validateAssignments} from './sim.mjs';
 import {validateCall} from './schema.mjs';
 import {scenarioSummary} from './view-events.mjs';
+import {checkWindowsPath,clearWindowsInspection} from './windows-files.mjs';
 
 const pluginRoot=fileURLToPath(new URL('../',import.meta.url));
 const packageVersion=JSON.parse(readFileSync(new URL('../package.json',import.meta.url))).version;
-const shell=value=>"'"+value.replaceAll("'","'\\''")+"'";
 export function readScenario(path,assignments){
  if(!isAbsolute(path))throw problem('Scenario path must be absolute.');
  // O_NONBLOCK: a FIFO opens at once instead of waiting for a writer, so the regular-file check below refuses it.
- const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);let input;
- try{const s=fstatSync(fd);if(!s.isFile()||s.uid!==process.geteuid()||(s.mode&0o022)||s.size>262144)throw problem('Scenario must be an owned, non-writable regular file below 256 KiB.');input=JSON.parse(readFileSync(fd,'utf8'));}
+ const fd=openSync(path,constants.O_RDONLY|(constants.O_NOFOLLOW||0)|(constants.O_NONBLOCK||0));let input;
+ try{const s=fstatSync(fd,{bigint:process.platform==='win32'});if(!s.isFile()||s.size>262144)throw problem('Scenario must be an owned, non-writable regular file below 256 KiB.');if(process.platform==='win32')checkWindowsPath(path,s,{readable:true});else if(s.uid!==process.geteuid()||(s.mode&0o022))throw problem('Scenario must be an owned, non-writable regular file below 256 KiB.');input=JSON.parse(readFileSync(fd,'utf8'));}
  finally{closeSync(fd);}
  const scenario=validateScenario(input);if(assignments)validateAssignments(assignments,scenario);return scenario;
 }
@@ -45,15 +46,16 @@ function offline(root,identity,params){
  return readView({root,sim,live,run,instanceId:pointer?.instanceId,online:false},identity,params);
 }
 export async function getView({params,connection,root,check}){
+ clearWindowsInspection();
  const view=params.get('view')||'status';
- if(view==='help')return staticView('help',helpRows().map(r=>({...r,lines:r.lines.map(s=>s.replace('<sim-dir>',shell(pluginRoot.replace(/\/$/,''))))})),params);
+ if(view==='help')return staticView('help',helpRows(),params);
  if(connection&&!isAbsolute(connection))throw problem('SIM_CONNECTION must be an absolute private connection file.');
  if(root&&!isAbsolute(root))throw problem('SIM_RUN_ROOT / --root must be absolute.');
  let config,identity={role:'observer',agentId:'unbound'},connectionState='not configured',connectionValid=false;
  if(connection){try{
    config=JSON.parse(readConnection(connection));const u=new URL(config.url);
    if(u.hostname!=='127.0.0.1'||u.protocol!=='http:'||u.pathname!=='/'||u.username||u.password||u.search||u.hash||!u.port||!/^[a-f0-9]{64}$/.test(config.token)||!['robot','coordinator'].includes(config.role)||typeof config.agentId!=='string'||config.role==='robot'&&typeof config.robotId!=='string')throw problem('Invalid connection.');
-   identity={role:config.role,agentId:config.agentId,...(config.role==='robot'?{robotId:config.robotId}:{})};connectionValid=true;connectionState='owner, 0600 mode and parent checks passed';
+   identity={role:config.role,agentId:config.agentId,...(config.role==='robot'?{robotId:config.robotId}:{})};connectionValid=true;connectionState=process.platform==='win32'?'current owner, private DACL, identity and ancestor checks passed':'owner, 0600 mode and parent checks passed';
   }catch(e){connectionState=e.code==='ENOENT'?'missing (normal after clean shutdown)':'owner, mode or contents refused';if(view!=='connection'&&e.code!=='ENOENT')throw problem('The configured private Sim connection is unavailable. Check its owner, mode and path.');}
  }
  let page,liveFailure=false;

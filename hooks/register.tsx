@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { views, usage, commandInput, parsePage, detailLines, localHelp, readerRequest, envLacksSplit } from './view.mjs'
+import { views, usage, commandInput, parsePage, detailLines, localHelp, readerRequest, envLacksSplit, readerHost } from './view.mjs'
 
 const PANE='toolsenabled-sim-view'
 let serial=0,opened=false,loading=false,collision=false
@@ -13,7 +13,8 @@ function redraw($:any){$.ui.invalidate('ui.render')}
 // before Node starts, so the reader gets PATH and LANG and nothing else from Claude Code (no Node settings such as NODE_OPTIONS);
 // -S fills in PATH from Claude Code's own environment, so node is found where Claude Code finds it. The request goes to standard input.
 async function reader($:any,request:string){
- const init={cwd:$.plugin.root,stdin:request,timeoutMs:5000}
+ const init={cwd:$.plugin.root,stdin:request,timeoutMs:12000}
+ if(readerHost($.plugin.root)==='windows')return $.process.run(['C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe','-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File','native/windows-pane.ps1'],init)
  const result=await $.process.run(['/usr/bin/env','-i','-S','PATH=${PATH}:/usr/local/bin:/usr/bin:/bin','LANG=C.UTF-8','node','tools/sim-view.mjs','--pane'],init)
  // An env without -S (BusyBox, as on Alpine Linux) refuses before anything starts: the same reader, with the standard PATH.
  if(result.exitCode!==0&&!result.stdout&&envLacksSplit.test(String(result.stderr||'')))return $.process.run(['/usr/bin/env','-i','PATH=/usr/local/bin:/usr/bin:/bin','LANG=C.UTF-8','node','tools/sim-view.mjs','--pane'],init)
