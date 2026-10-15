@@ -34,7 +34,7 @@
   "hooks/sim.test.ts": "2f698ac781b0f8f1b5ce993626cc053478718ac103d0bbfe95f0a731c18f3a8d",
   "hooks/view.mjs": "7043a653d3d68ff592173c3ca56e96b789165f37c9083c39860828f35f0e9a54",
   "install.cmd": "a58eb4dc2ca3aac5a3577fff294a52bcae2fdc745e91a8c694c80f96d9d70acb",
-  "install.ps1": "3d516c3083c9c03c84b76ee0549527434895f4c39a26497450d2f21bd0b8ac29",
+  "install.ps1": "986151d7ca2ceed4a31272cd3b862bccc5f37ccc5c3e9dd4c59f6021357403b5",
   "licenses/Apache-2.0.txt": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb",
   "manifest.json": "d84939e833a2ebf4429bc86374c5bb5f22eb56d2321822d03d3ae6ab3364bcaf",
   "native/windows-file-handle.cs": "c94a16ce42ccd192afbe8ccb4487701781dc49611ea0d97a90237f4f7ae275bb",

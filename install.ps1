@@ -1,5 +1,9 @@
 param([string]$Destination = '')
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 otherwise sends native-process pipeline input as ASCII.
+# The helper reads UTF-8 JSON; preserve the exact validated destination spelling.
+$OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 if (!$Destination) { $Destination = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'ToolsEnabled\Sim\0.1.13' }
 $root = [IO.Path]::GetFullPath($PSScriptRoot)
 $manifestPath = Join-Path $root 'tools\install-files.json'
