@@ -40,7 +40,7 @@
   "native/windows-job.cs": "7d84a12f2ce0a87219357cccd8dc97128d0fd36d82de138be5d8fa7d261d821f",
   "native/windows-pane-child.mjs": "b38c60d0cfb408b7a862168a64690eeeca9cccef331ac88af835dd1c1368d2c6",
   "native/windows-pane.ps1": "94f0423873c7b5b30306d3424708c70d0a5e87857e22039fbecb1bb801a8821a",
-  "native/windows-private-files.ps1": "2a5ac068b13e1a6b7a31f07c7fd91c745a141626384dc9997ba66dad6e2a3fc2",
+  "native/windows-private-files.ps1": "362fb7d1f3f8d5fe8d1f86e37a02b89d464360e100ad3da2d2846b337a2a94a6",
   "node_modules/@dimforge/rapier3d-compat/package.json": "faf50a7ae7e48b44c66b21fde582891e3a3fc58104f089fbb20649af37bfa9bb",
   "node_modules/@dimforge/rapier3d-compat/rapier.es.js": "e0f7783dae9d3d175ec62c0cafdad84261d8c64c5f7da6ae5b24e858cf9ab759",
   "node_modules/@mujoco/mujoco/mujoco.js": "bc6980e4bc5ee5f809a6cabde0743798637e113d333f9e85124714d42be1ccae",
