@@ -13,7 +13,7 @@ const shell=native?join(process.env.SystemRoot,'System32','WindowsPowerShell','v
 const available=spawnSync(shell,['-NoLogo','-NoProfile','-NonInteractive','-Command','exit 0'],{timeout:10000,windowsHide:true}).status===0;
 test('ancestor policy rejects untrusted ownership/control and conservatively interprets raw DACL grants',{skip:!available,timeout:30000},()=>{
  const run=spawnSync(shell,['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./fixtures/windows-ancestor.ps1',import.meta.url)),...(native?['-RawDescriptors']:[])],{encoding:'utf8',timeout:25000,windowsHide:true});
- assert.equal(run.status,0,run.stderr||run.stdout);const result=JSON.parse(run.stdout.trim().replace(/^\uFEFF/,''));assert.equal(result.passed,result.total);assert.ok(result.passed>=(native?30:13));assert.equal(result.rawDescriptors,native);
+ assert.equal(run.status,0,run.stderr||run.stdout);const result=JSON.parse(run.stdout.trim().replace(/^\uFEFF/,''));assert.equal(result.passed,result.total);assert.ok(result.passed>=(native?37:13));assert.equal(result.rawDescriptors,native);
 });
 test('native private directories and opened files enforce owner, DACL, exact identity, one link and local paths',{skip:!native,timeout:90000},()=>{
  const root=join(tmpdir(),'sim-private-native-'+randomUUID());
