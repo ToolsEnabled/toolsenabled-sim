@@ -1,3 +1,6 @@
 # Preserve reviewed source and bundled dependency bytes on every host.
 # Automatic CRLF conversion would invalidate the SHA256 inventories.
 * -text
+# Third-party whitespace is retained exactly as distributed upstream.
+/node_modules/** -whitespace
+/install.cmd whitespace=cr-at-eol

@@ -36,3 +36,8 @@ test('human command guidance quotes Windows apostrophes without expanding shell 
  const value="C:\\a b\\that's $literal`text";assert.equal(shellArgument(value,'win32'),"'C:\\a b\\that''s $literal`text'");
  assert.equal(shellArgument("a'b",'linux'),"'a'\\''b'");
 });
+
+test('native path component checks preserve ordinary names while refusing aliases, devices and controls',()=>{
+ for(const path of ['C:\\Users\\j\\file.json','C:\\Users\\j\\folder','C:/safe/normal'])assert.doesNotThrow(()=>windowsLocalPath(path));
+ for(const path of ['C:\\safe\\name.','C:\\safe\\name ','C:\\safe\\..\\other','C:\\safe\\nul.txt','C:\\safe\\bad\u0001name'])assert.throws(()=>windowsLocalPath(path));
+});
