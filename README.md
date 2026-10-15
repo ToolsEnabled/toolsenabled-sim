@@ -16,7 +16,7 @@ Use Node.js 22 or newer. Git checkouts and release archives both include the sam
 node tools/package-inputs.mjs .
 ```
 
-The 0.1.13 candidate is held pending qualification. After publication, download both files from [v0.1.13](https://github.com/ToolsEnabled/toolsenabled-sim/releases/tag/v0.1.13), then verify before extracting:
+For a published, qualified 0.1.13 release, download both files from [v0.1.13](https://github.com/ToolsEnabled/toolsenabled-sim/releases/tag/v0.1.13), then verify before extracting:
 
 ```sh
 sha256sum -c toolsenabled-sim-0.1.13.zip.sha256
@@ -72,7 +72,7 @@ codex plugin marketplace add ToolsEnabled/toolsenabled-sim
 Claude Code stores `connection_file` per user (in `settings.json` of its configuration directory), not per project, so installing for a second robot rebinds the first. To run several robots on one OS account, give each robot agent its own `CLAUDE_CONFIG_DIR` and use it for every `claude` command of that agent; see [several robots on one OS account](docs/CLAUDE-INSTALL.md#several-robots-on-one-os-account). The install prints `1 userConfig option not yet set`: that is the optional `run_root`, and the message is expected.
 
 For an offline Claude Code install from the verified ZIP, add its extracted `sim/` directory as a local marketplace and use the same plugin name. Git-backed installs and ZIP installs both contain the reviewed runtime dependencies; neither needs npm installation. Set Codex's absolute `SIM_CONNECTION` in the host environment before starting it, then install Sim from the toolsenabled-sim marketplace in Codex's /plugins browser.
-See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.13 release, and native installation still needs qualification. The Windows CLI/plugin candidate has a separate ACL implementation and remains unqualified; see docs/WINDOWS.md.
+See [docs/CLAUDE-INSTALL.md](docs/CLAUDE-INSTALL.md) for configuration, host diagnostics, recovery, Codex loading, offline prerequisites and release qualification. A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.13 release, and native installation still needs qualification. The native Windows CLI/MCP runtime uses separate owner/ACL/handle checks; see docs/WINDOWS.md. Real host GUI/pane and Desktop-bundle acceptance are separate owner checks.
 
 Sim has no dashboard or human-control link. The human starts the hub and finds connection-file paths in its launch terminal. Capture and replay are explicit human-run local commands. Agent file/shell tools running as the same user can read host logs and private connection files; project scope and skill guidance do not provide OS isolation.
 
@@ -232,8 +232,8 @@ No provider credentials or model calls are needed.
 | `/toolsenabled-sim:reset` | Coordinator: no arguments. Restart everyone's shared world and round; old logs remain. | `$toolsenabled-sim:toolsenabled-sim reset` |
 
 
-## Windows candidate
+## Native Windows
 
-Version 0.1.13 prepares a native Node + Windows PowerShell implementation, per-user ACL creation, conservative ancestor owner/raw-DACL checks, handle-bound file reads and a contained pane reader. It has not passed native acceptance. Do not treat Linux tests, PowerShell parsing or C# compilation as Windows proof. See [docs/WINDOWS.md](docs/WINDOWS.md) for the held install route, differences, exact open gates and owner checks.
+Version 0.1.13 uses native Node + Windows PowerShell, per-user ACL creation, conservative ancestor owner/raw-DACL checks, handle-bound file reads and a contained pane reader. Its measured regression environment is Windows 10 Pro 22H2 build 19045, Node 22.14.0 and Windows PowerShell 5.1.19041.6456. Use a normal, non-elevated terminal. See [docs/WINDOWS.md](docs/WINDOWS.md) for the portable install route, security differences and the distinction between runtime qualification and owner GUI/live-client checks. Windows 11 and native browser capture remain untested.
 
 The latest measured directory result remains Sim 0.1.12: 5 warnings / 8 policy holds. This candidate bundles dependencies in Git, removes the automatic npm install path, keeps client invocation syntax in docs, and separates local HTTP test helpers from process-launching suites. Their scanner effects are unmeasured. Panes and the exact “Type the Sim action yourself to request it.” refusal remain owner decisions. Large bundled upstream JavaScript/WebAssembly may require additional inspection holds. The three metadata fields used by the portal listing remain present. No portal submission or validation was performed here.

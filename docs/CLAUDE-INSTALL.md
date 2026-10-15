@@ -1,6 +1,6 @@
 # Claude plugin installation
 
-Linux tested; native Windows not yet supported.
+Linux plugin integration is tested. Native Windows CLI/MCP setup and its measured environment are described in [WINDOWS.md](WINDOWS.md); actual Windows Claude Code pane, Codex host and Desktop GUI checks remain owner-pending.
 
 Plugin and skill name: `toolsenabled-sim`. Node.js 22+ is required. The reviewed ZIP includes pinned offline dependencies; the runtime never installs packages or downloads a browser. Keep the hub, run logs and private connection files outside the versioned plugin cache. The plugin launches only the stdio connection shim and joins an already running shared hub.
 
@@ -15,7 +15,7 @@ node src/hub-cli.mjs --root /absolute/private-sim-run
 node tools/live.mjs --root /absolute/another-private-run --work-record /absolute/work-record.json
 ```
 
-Choose one command for the intended mode. Either accepts `--engine mujoco` to run the shared world on MuJoCo; Rapier is the default. Keep that process running. It prints the **paths** to private connection files, not their capability contents. Give each host the path for its own robot; keep the coordinator file with the coordinator. The file must be owned by the connecting OS account with mode 0600 and an owned, non-writable parent. Existing run roots require owner mode 0700. Linux retains these POSIX checks. The native Windows candidate uses separate owner/ACL/handle checks and remains unqualified; see WINDOWS.md. For separate-account agents the human deliberately copies only that agent's file into its own private account directory with the required owner/mode.
+Choose one command for the intended mode. Either accepts `--engine mujoco` to run the shared world on MuJoCo; Rapier is the default. Keep that process running. It prints the **paths** to private connection files, not their capability contents. Give each host the path for its own robot; keep the coordinator file with the coordinator. The file must be owned by the connecting OS account with mode 0600 and an owned, non-writable parent. Existing run roots require owner mode 0700. Linux retains these POSIX checks. Windows uses separate owner/ACL/handle checks and a normal, non-elevated terminal; see WINDOWS.md. For separate-account agents the human deliberately copies only that agent's file into its own private account directory with the required owner/mode.
 
 All configured paths must be absolute. Empty, relative, `~` and drive-relative paths are refused, including `SIM_CONNECTION`. Spaces are literal path characters; do not put shell quotes inside JSON values. A connection file grants the role recorded in it; changing tool arguments never changes that identity. Same-user agent file/shell tools can read private files, so do not treat a skill or project boundary as OS isolation.
 
@@ -83,7 +83,7 @@ The stdio server reads one application environment variable at startup: `SIM_CON
 
 ## Desktop bundle and release metadata
 
-A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.13 release, and native installation still needs qualification. The bundle requires Node 22+. Its manifest still restricts native installation to macOS; the new Windows CLI/plugin implementation requires separate native qualification before Desktop compatibility can be declared. Headless Linux MCP tests do not establish native Desktop acceptance, and including SKILL.md does not establish Desktop skill loading. Local MCP servers are not available in claude.ai chat.
+A Claude Desktop bundle can be built with `tools/package-mcpb.py`; no Desktop bundle is attached to the 0.1.13 release. Desktop-bundle/GUI acceptance is separate from native CLI/MCP qualification. The bundle requires Node 22+. Its manifest still restricts native installation to macOS; the new Windows CLI/plugin implementation requires separate native qualification before Desktop compatibility can be declared. Headless Linux MCP tests do not establish native Desktop acceptance, and including SKILL.md does not establish Desktop skill loading. Local MCP servers are not available in claude.ai chat.
 
 The human imports only the reviewed bundle and supplies the absolute private connection-file path. During future native qualification, confirm shim stderr in `~/Library/Logs/Claude/mcp-server-<server-name>.log` and `mcp.log`. No one-time dashboard link is expected. A development signature proves neither trusted publisher identity nor native installation support.
 
