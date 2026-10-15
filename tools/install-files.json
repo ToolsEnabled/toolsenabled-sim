@@ -152,7 +152,7 @@
   "tools/mcpb-clock.cjs": "6b64dca211aea916358c67bcd0e2e335da293049cd20fd833d487aabcef39c7f",
   "tools/package-files.json": "330e40c78832a40e0480ccea40f15e29ecc9b273161ba44e042dbbb5e5461f73",
   "tools/package-inputs.mjs": "fd99eec829b09a758027c74244da02ca64898849743b1c7fedb4f96c410cfbed",
-  "tools/package-mcpb.py": "257a10a19c5de322d042ac1c20c7fe4b087ca10e1a425073b3aac79c9ecb895a",
+  "tools/package-mcpb.py": "93443d6645a98853d6de70eee224ec4188124864153d43ac451ce79cf1277964",
   "tools/package.mjs": "3b80d534e1ffe759edf51f4e54d8bf8430264ddf83713a6516ecc424ee9c0621",
   "tools/prove-fleet.mjs": "65afec6e665b73cae34f3e4c8594a506efe841abc0fd958571831dc53231e517",
   "tools/release_download.py": "6317d231d54fe05923500eb6e9562c9ba29d3e742d73cbe189651ea6217ddcf3",

@@ -43,8 +43,8 @@ def build(cli, output):
     if len(listing_image) > 1: raise ValueError('Only one listing image may sit in .claude-plugin')
     if [name for name in tracked if name not in listing_image] != json.loads((ROOT/'tools/package-files.json').read_text()):
         raise ValueError('Source allowlist differs from tracked files')
-    subprocess.run(['node', str(ROOT/'tools/install-inventory.mjs'), '--check'], cwd=ROOT, check=True)
     cli = cli.resolve(strict=True)
+    subprocess.run(['node', str(ROOT/'tools/install-inventory.mjs'), '--check'], cwd=ROOT, check=True)
     version = subprocess.check_output(['node', str(cli), '--version'], text=True).strip()
     if version != '2.1.2': raise ValueError('Expected mcpb CLI 2.1.2')
     output = output.resolve()
